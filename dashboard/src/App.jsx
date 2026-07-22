@@ -55,25 +55,42 @@ export default function App() {
   const [activeTimeBreakdown, setActiveTimeBreakdown] = useState({ totalSeconds: 0, apps: [] });
   const [summary, setSummary] = useState([]);
   const [timer, setTimer] = useState({ status: "idle", phase: "work", remaining_seconds: 0 });
+  const [userSettings, setUserSettings] = useState({ pomodoro_duration_minutes: 25, sleep_time: "23:00", reflection_email: "" });
   const [title, setTitle] = useState("");
   const [estimate, setEstimate] = useState(1);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Settings modal states
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({ pomodoro_duration_minutes: 25, sleep_time: "23:00", reflection_email: "" });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState("");
+  const [settingsError, setSettingsError] = useState("");
+
   async function refresh(date = selectedDate) {
     setLoading(true);
     setError("");
     try {
-      const [nextTasks, nextSummaryBreakdown, nextSummary, nextTimer] = await Promise.all([
+      const [nextTasks, nextSummaryBreakdown, nextSummary, nextTimer, nextSettings] = await Promise.all([
         request("/tasks"),
         request(`/active-time-summary?date=${encodeURIComponent(date)}`),
         request("/activity/summary?days=28"),
         request("/pomodoro"),
+        request("/settings"),
       ]);
       setTasks(nextTasks);
       setActiveTimeBreakdown(nextSummaryBreakdown);
       setSummary(nextSummary.days);
       setTimer(nextTimer);
+      if (nextSettings) {
+        setUserSettings(nextSettings);
+        setSettingsForm({
+          pomodoro_duration_minutes: nextSettings.pomodoro_duration_minutes || 25,
+          sleep_time: nextSettings.sleep_time || "23:00",
+          reflection_email: nextSettings.reflection_email || "",
+        });
+      }
     } catch (nextError) {
       setError(nextError.message);
     } finally {
@@ -105,6 +122,30 @@ export default function App() {
 
     return () => clearInterval(intervalId);
   }, [timer.status, timer.started_at, timer.duration_at_start]);
+
+  async function saveSettings(e) {
+    e.preventDefault();
+    setSavingSettings(true);
+    setSettingsError("");
+    setSettingsSuccess("");
+    try {
+      const updated = await request("/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          pomodoro_duration_minutes: Number(settingsForm.pomodoro_duration_minutes),
+          sleep_time: settingsForm.sleep_time,
+          reflection_email: settingsForm.reflection_email.trim() || null,
+        }),
+      });
+      setUserSettings(updated);
+      setSettingsSuccess("Settings saved successfully!");
+      setTimeout(() => setSettingsSuccess(""), 3000);
+    } catch (err) {
+      setSettingsError(err.message);
+    } finally {
+      setSavingSettings(false);
+    }
+  }
 
   async function addTask(event) {
     event.preventDefault();
@@ -142,9 +183,10 @@ export default function App() {
 
   async function startTask(task) {
     try {
+      const defaultDuration = (userSettings.pomodoro_duration_minutes || 25) * 60;
       await request("/pomodoro/start", {
         method: "POST",
-        body: JSON.stringify({ task_id: task.id, duration_seconds: 1500 }),
+        body: JSON.stringify({ task_id: task.id, duration_seconds: defaultDuration }),
       });
       refresh();
     } catch (nextError) {
@@ -165,6 +207,7 @@ export default function App() {
   const todayStr = today();
   const todayData = summary.find((day) => day.date === todayStr) || { total_laptop_time_seconds: 0 };
   const todayLaptopTime = todayData.total_laptop_time_seconds || 0;
+  const focusDurationSeconds = (userSettings.pomodoro_duration_minutes || 25) * 60;
 
   return (
     <main>
@@ -173,9 +216,14 @@ export default function App() {
           <p className="eyebrow">LOCAL ACTIVITY & FOCUS</p>
           <h1>Vigil</h1>
         </div>
-        <button className="secondary" onClick={() => refresh()} disabled={loading}>
-          {loading ? "Refreshing…" : "Refresh"}
-        </button>
+        <div style={{ display: "flex", gap: "0.55rem", alignItems: "center" }}>
+          <button className="icon-btn" onClick={() => setShowSettings(true)} title="Settings" aria-label="Settings">
+            ⚙️
+          </button>
+          <button className="secondary" onClick={() => refresh()} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </header>
 
       {error && <p className="error">{error}</p>}
@@ -187,7 +235,11 @@ export default function App() {
             <p className="clock">{formatDuration(timer.remaining_seconds)}</p>
           </div>
           <div className="actions">
-            {timer.status === "idle" && <button onClick={() => timerAction("/pomodoro/start", { duration_seconds: 1500 })}>Start focus</button>}
+            {timer.status === "idle" && (
+              <button onClick={() => timerAction("/pomodoro/start", { duration_seconds: focusDurationSeconds })}>
+                Start focus ({userSettings.pomodoro_duration_minutes || 25}m)
+              </button>
+            )}
             {timer.status === "running" && <button className="secondary" onClick={() => timerAction("/pomodoro/pause")}>Pause</button>}
             {timer.status === "paused" && <button onClick={() => timerAction("/pomodoro/resume")}>Resume</button>}
             {timer.status !== "idle" && <button className="danger" onClick={() => timerAction("/pomodoro/stop")}>Stop</button>}
@@ -320,6 +372,74 @@ export default function App() {
           </div>
         </section>
       </div>
+
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>User Settings</h2>
+              <button className="close-btn" onClick={() => setShowSettings(false)}>×</button>
+            </div>
+            <form onSubmit={saveSettings}>
+              <div className="form-group">
+                <label htmlFor="pomodoro_duration">Default Pomodoro Duration (minutes)</label>
+                <input
+                  id="pomodoro_duration"
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={settingsForm.pomodoro_duration_minutes}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, pomodoro_duration_minutes: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="sleep_time">Sleep Time (HH:MM)</label>
+                <input
+                  id="sleep_time"
+                  type="time"
+                  value={settingsForm.sleep_time}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, sleep_time: e.target.value })}
+                  required
+                />
+                <span className="eyebrow" style={{ marginTop: "0.2rem" }}>
+                  Nightly reflection trigger: {parse_sleep_trigger_display(settingsForm.sleep_time)}
+                </span>
+              </div>
+              <div className="form-group">
+                <label htmlFor="reflection_email">Reflection Email (Apple Watch Glance)</label>
+                <input
+                  id="reflection_email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={settingsForm.reflection_email || ""}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, reflection_email: e.target.value })}
+                />
+              </div>
+              {settingsError && <p className="error">{settingsError}</p>}
+              {settingsSuccess && <p className="success">{settingsSuccess}</p>}
+              <div className="modal-actions">
+                <button type="button" className="secondary" onClick={() => setShowSettings(false)}>
+                  Close
+                </button>
+                <button type="submit" disabled={savingSettings}>
+                  {savingSettings ? "Saving…" : "Save Settings"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
+}
+
+function parse_sleep_trigger_display(sleepTimeStr) {
+  if (!sleepTimeStr) return "22:45";
+  const [h, m] = sleepTimeStr.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return "22:45";
+  const total = (h * 60 + m - 15 + 1440) % 1440;
+  const th = String(Math.floor(total / 60)).padStart(2, "0");
+  const tm = String(total % 60).padStart(2, "0");
+  return `${th}:${tm} (15m before sleep)`;
 }

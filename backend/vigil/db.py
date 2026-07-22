@@ -85,10 +85,34 @@ async def initialize_database() -> None:
                 sessions_completed INTEGER NOT NULL DEFAULT 0,
                 updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS user_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                pomodoro_duration_minutes INTEGER NOT NULL DEFAULT 25,
+                sleep_time TEXT NOT NULL DEFAULT '23:00',
+                reflection_email TEXT,
+                updated_at TEXT NOT NULL
+            );
+
+            INSERT INTO user_settings (id, pomodoro_duration_minutes, sleep_time, reflection_email, updated_at)
+            VALUES (1, 25, '23:00', NULL, datetime('now'))
+            ON CONFLICT(id) DO NOTHING;
+
+            CREATE TABLE IF NOT EXISTS email_outbox (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_date TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                body TEXT NOT NULL,
+                is_sent INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                sent_at TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_email_outbox_sent ON email_outbox (is_sent, target_date);
             """
         )
         await connection.commit()
-        logger.info("Database initialized successfully with WAL, busy_timeout=5000, and PersistentTimerState schema.")
+        logger.info("Database initialized successfully with user_settings, email_outbox, and PersistentTimerState schemas.")
 
 
 async def cleanup_old_logs(retention_days: int = 30) -> None:

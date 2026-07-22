@@ -49,3 +49,16 @@ class TimerState:
     sessions_completed: int = 0
     started_at: str | None = None
     duration_at_start: int = 0
+
+
+class UserSettings(BaseModel):
+    pomodoro_duration_minutes: int = Field(default=25, ge=1, le=120)
+    sleep_time: str = Field(default="23:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    reflection_email: str | None = Field(default=None, max_length=320)
+
+
+class SettingsUpdate(BaseModel):
+    pomodoro_duration_minutes: int | None = Field(default=None, ge=1, le=120)
+    sleep_time: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    reflection_email: str | None = Field(default=None, max_length=320)
+
