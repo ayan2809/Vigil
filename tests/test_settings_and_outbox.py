@@ -116,9 +116,10 @@ async def test_outbox_generator_and_watchos_format():
     subject = row["subject"]
     body = row["body"]
 
-    # Verify WatchOS Subject format: Vigil ([Date]): [Total Focus] / [Total Laptop]
+    # Verify WatchOS Subject format: Vigil ([Date]): [Total Focus] ([Focus %]%) / [Total Laptop] Total
     assert subject.startswith("Vigil (")
-    assert "Focus /" in subject
+    assert "Focus (" in subject
+    assert "%) /" in subject
     assert "Total" in subject
 
     # Verify WatchOS Body First Line: 🥇 [App1] ([Time]) | 🥈 [App2] ([Time]) | 🥉 [App3] ([Time])

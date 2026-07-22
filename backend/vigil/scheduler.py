@@ -8,9 +8,15 @@ from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from typing import Any
 
+from pathlib import Path
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dotenv import load_dotenv
 from vigil.db import get_db, iso_now, local_now
 from vigil.logger import logger
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
 
 scheduler = AsyncIOScheduler()
 NIGHTLY_JOB_ID = "generate_nightly_reflection"
@@ -105,8 +111,10 @@ async def generate_nightly_reflection_payload(target_date: str | None = None) ->
         logger.info(f"Nightly reflection check for {today_str}: Total Laptop Time is 0. Aborting email generation.")
         return None
 
-    # Subject Line: Vigil ([Date]): [Total Focus] / [Total Laptop]
-    subject = f"Vigil ({date_formatted}): {format_duration_short(total_focus)} Focus / {format_duration_short(total_laptop)} Total"
+    focus_percent = round((total_focus / total_laptop) * 100) if total_laptop > 0 else 0
+
+    # Subject Line: Vigil ([Date]): [Total Focus] ([Focus %]%) / [Total Laptop] Total
+    subject = f"Vigil ({date_formatted}): {format_duration_short(total_focus)} Focus ({focus_percent}%) / {format_duration_short(total_laptop)} Total"
 
     # Body First Line: 🥇 [App1] ([Time]) | 🥈 [App2] ([Time]) | 🥉 [App3] ([Time])
     emojis = ["🥇", "🥈", "🥉"]
@@ -120,7 +128,13 @@ async def generate_nightly_reflection_payload(target_date: str | None = None) ->
     body_first_line = " | ".join(top_apps_str_list)
 
     # Full Body
-    body_lines = [body_first_line, "", f"Date: {today_str}", f"Focus Time: {format_duration_short(total_focus)}", f"Laptop Time: {format_duration_short(total_laptop)}"]
+    body_lines = [
+        body_first_line,
+        "",
+        f"Date: {today_str}",
+        f"Focus Time: {format_duration_short(total_focus)} ({focus_percent}%)",
+        f"Laptop Time: {format_duration_short(total_laptop)}",
+    ]
     body = "\n".join(body_lines)
 
     return subject, body, total_laptop

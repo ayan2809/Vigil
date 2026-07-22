@@ -8,3 +8,5 @@ data/*.db-wal
 data/*.log
 dashboard/node_modules/
 dashboard/dist/
+.env
+

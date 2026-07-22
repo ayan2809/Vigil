@@ -49,6 +49,15 @@ function formatHoursMins(totalSeconds = 0) {
   return `${hours}h ${mins}m`;
 }
 
+function formatHeatmapTooltip(focusSeconds = 0, laptopSeconds = 0) {
+  if (!focusSeconds && !laptopSeconds) return "0m Focus / 0m Total (0%)";
+  const focusStr = formatHoursMins(focusSeconds);
+  const laptopStr = formatHoursMins(laptopSeconds);
+  const pct = laptopSeconds > 0 ? Math.round((focusSeconds / laptopSeconds) * 100) : 0;
+  return `${focusStr} Focus (${pct}%) / ${laptopStr} Total`;
+}
+
+
 export default function App() {
   const [selectedDate, setSelectedDate] = useState(today());
   const [tasks, setTasks] = useState([]);
@@ -267,17 +276,11 @@ export default function App() {
             <div
               className="contribution"
               key={day.date}
-              title={
-                !day.total_laptop_time_seconds && !day.total_focus_time_seconds
-                  ? "0m / 0m"
-                  : `${formatHoursMins(day.total_focus_time_seconds)} / ${formatHoursMins(day.total_laptop_time_seconds)}`
-              }
+              title={formatHeatmapTooltip(day.total_focus_time_seconds, day.total_laptop_time_seconds)}
               style={{ opacity: day.event_count ? 0.25 + (day.event_count / maxEvents) * 0.75 : 0.08 }}
             >
               <span className="tooltip-text">
-                {!day.total_laptop_time_seconds && !day.total_focus_time_seconds
-                  ? "0m / 0m"
-                  : `${formatHoursMins(day.total_focus_time_seconds)} / ${formatHoursMins(day.total_laptop_time_seconds)}`}
+                {formatHeatmapTooltip(day.total_focus_time_seconds, day.total_laptop_time_seconds)}
               </span>
             </div>
           ))}
