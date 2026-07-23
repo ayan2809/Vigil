@@ -76,6 +76,16 @@ async function sendOrQueue(payload) {
   }
 }
 
+function getBrowserName() {
+  const ua = navigator.userAgent || "";
+  if (ua.includes("Arc")) return "Arc";
+  if (ua.includes("Edg")) return "Microsoft Edge";
+  if (ua.includes("Brave")) return "Brave";
+  if (ua.includes("Chrome")) return "Google Chrome";
+  if (ua.includes("Safari")) return "Safari";
+  return "Browser";
+}
+
 async function reportActiveTab(tab, eventType) {
   if (!tab?.active || !tab.url || !/^https?:/i.test(tab.url)) {
     return;
@@ -89,6 +99,7 @@ async function reportActiveTab(tab, eventType) {
 
   const payload = {
     source: "browser",
+    application_name: getBrowserName(),
     url: tab.url,
     title: tab.title || null,
     event_type: eventType,

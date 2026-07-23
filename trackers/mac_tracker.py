@@ -108,20 +108,39 @@ class WorkspaceObserver(NSObject):
         except Exception as exc:
             logger.error(f"Error in workspaceDidActivateApplication: {exc}")
 
+IGNORED_BUNDLE_IDS = {
+    "com.apple.loginwindow",
+    "com.apple.ScreenSaver.Engine",
+    "com.apple.lockscreen",
+}
+
+IGNORED_APP_NAMES = {
+    "loginwindow",
+    "ScreenSaverEngine",
+}
+
+
     def emit_application(self, application) -> None:
         try:
             if application is None:
                 return
+            bundle_id = str(application.bundleIdentifier() or "")
+            app_name = str(application.localizedName() or "Unknown")
+
+            if bundle_id in IGNORED_BUNDLE_IDS or app_name in IGNORED_APP_NAMES:
+                logger.debug(f"Ignoring system lock process {app_name!r} ({bundle_id})")
+                return
+
             process_id = int(application.processIdentifier())
             if process_id == self.last_process_id:
                 return
             self.last_process_id = process_id
             payload = {
                 "source": "app",
-                "application_name": str(application.localizedName() or "Unknown"),
+                "application_name": app_name,
                 "event_type": "frontmost_application_changed",
                 "metadata": {
-                    "bundle_id": str(application.bundleIdentifier() or ""),
+                    "bundle_id": bundle_id,
                     "process_id": process_id,
                 },
             }
