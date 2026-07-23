@@ -62,12 +62,13 @@ async def generate_nightly_reflection_payload(target_date: str | None = None) ->
         WITH EventWindow AS (
             SELECT
                 source,
-                COALESCE(application_name, 'Unknown App') AS app_name,
+                COALESCE(application_name, CASE WHEN source = 'browser' THEN 'Arc' ELSE 'Unknown App' END) AS app_name,
                 domain,
                 occurred_at,
                 LEAD(occurred_at) OVER (ORDER BY occurred_at ASC) AS next_occurred_at
             FROM TrackingLogs
             WHERE local_date = ? AND event_type != 'pomodoro_completed'
+              AND COALESCE(application_name, '') NOT IN ('loginwindow', 'ScreenSaverEngine')
         ),
         EventDurations AS (
             SELECT
