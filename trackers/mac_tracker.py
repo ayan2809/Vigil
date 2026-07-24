@@ -56,6 +56,18 @@ def _send_webhook(server_url: str, payload: dict) -> None:
         logger.error(f"Unexpected error posting tracker event: {exc}")
 
 
+IGNORED_BUNDLE_IDS = {
+    "com.apple.loginwindow",
+    "com.apple.ScreenSaver.Engine",
+    "com.apple.lockscreen",
+}
+
+IGNORED_APP_NAMES = {
+    "loginwindow",
+    "ScreenSaverEngine",
+}
+
+
 class WorkspaceObserver(NSObject):
     def initWithServerURL_(self, server_url: str):  # noqa: N802 - required Objective-C selector spelling
         self = objc_super(WorkspaceObserver, self).init()
@@ -107,18 +119,6 @@ class WorkspaceObserver(NSObject):
             self.emit_application(application)
         except Exception as exc:
             logger.error(f"Error in workspaceDidActivateApplication: {exc}")
-
-IGNORED_BUNDLE_IDS = {
-    "com.apple.loginwindow",
-    "com.apple.ScreenSaver.Engine",
-    "com.apple.lockscreen",
-}
-
-IGNORED_APP_NAMES = {
-    "loginwindow",
-    "ScreenSaverEngine",
-}
-
 
     def emit_application(self, application) -> None:
         try:
