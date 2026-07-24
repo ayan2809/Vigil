@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shlex
 import subprocess
-from vigil.logger import logger
+from satan.logger import logger
 
 
 def speak(text: str) -> None:

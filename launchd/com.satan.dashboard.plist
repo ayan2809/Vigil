@@ -3,14 +3,22 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.vigil.menubar</string>
+  <string>com.satan.dashboard</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/ayan/Documents/Vigil/.venv/bin/python</string>
-    <string>/Users/ayan/Documents/Vigil/menu_bar/menubar.py</string>
+    <string>/opt/homebrew/bin/npm</string>
+    <string>--prefix</string>
+    <string>dashboard</string>
+    <string>run</string>
+    <string>dev</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/ayan/Documents/Vigil</string>
+  <string>/Volumes/Projects/Vigil</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -21,8 +29,8 @@
   <key>ThrottleInterval</key>
   <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>/Users/ayan/Documents/Vigil/data/vigil-menubar.log</string>
+  <string>/Volumes/Projects/Vigil/data/satan-dashboard.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/ayan/Documents/Vigil/data/vigil-menubar.log</string>
+  <string>/Volumes/Projects/Vigil/data/satan-dashboard.log</string>
 </dict>
 </plist>

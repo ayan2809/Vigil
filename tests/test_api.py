@@ -16,12 +16,12 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 # Use a test database
-TEST_DB_PATH = PROJECT_ROOT / "data" / "test_vigil.db"
-os.environ["VIGIL_DB_PATH"] = str(TEST_DB_PATH)
+TEST_DB_PATH = PROJECT_ROOT / "data" / "test_satan.db"
+os.environ["SATAN_DB_PATH"] = str(TEST_DB_PATH)
 
-from vigil.db import initialize_database, get_db
-from vigil.main import app
-from vigil.timer import load_persisted_timer_state, timer_snapshot, timer_state
+from satan.db import initialize_database, get_db
+from satan.main import app
+from satan.timer import load_persisted_timer_state, timer_snapshot, timer_state
 
 
 @pytest.fixture(autouse=True)

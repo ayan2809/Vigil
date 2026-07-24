@@ -7,8 +7,8 @@ from urllib.parse import urlparse
 
 import aiosqlite
 from fastapi import APIRouter, Depends, status
-from vigil.db import get_db, local_now
-from vigil.models import TrackingEvent
+from satan.db import get_db, local_now
+from satan.models import TrackingEvent
 
 router = APIRouter(tags=["tracking"])
 

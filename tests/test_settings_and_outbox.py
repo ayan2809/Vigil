@@ -16,12 +16,12 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 # Use a test database
-TEST_DB_PATH = PROJECT_ROOT / "data" / "test_vigil_settings.db"
-os.environ["VIGIL_DB_PATH"] = str(TEST_DB_PATH)
+TEST_DB_PATH = PROJECT_ROOT / "data" / "test_satan_settings.db"
+os.environ["SATAN_DB_PATH"] = str(TEST_DB_PATH)
 
-from vigil.db import get_db, initialize_database, local_now
-from vigil.main import app
-from vigil.scheduler import (
+from satan.db import get_db, initialize_database, local_now
+from satan.main import app
+from satan.scheduler import (
     generate_nightly_reflection_job,
     generate_nightly_reflection_payload,
     parse_sleep_time_to_trigger,
@@ -116,8 +116,8 @@ async def test_outbox_generator_and_watchos_format():
     subject = row["subject"]
     body = row["body"]
 
-    # Verify WatchOS Subject format: Vigil ([Date]): [Total Focus] ([Focus %]%) / [Total Laptop] Total
-    assert subject.startswith("Vigil (")
+    # Verify WatchOS Subject format: Satan ([Date]): [Total Focus] ([Focus %]%) / [Total Laptop] Total
+    assert subject.startswith("Satan (")
     assert "Focus (" in subject
     assert "%) /" in subject
     assert "Total" in subject

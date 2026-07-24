@@ -7,7 +7,7 @@ from typing import Any
 
 import aiosqlite
 from fastapi import APIRouter, Depends
-from vigil.db import get_db, local_now
+from satan.db import get_db, local_now
 
 router = APIRouter(tags=["summary"])
 

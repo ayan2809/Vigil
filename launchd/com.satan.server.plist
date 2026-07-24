@@ -3,14 +3,19 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.vigil.tracker</string>
+  <string>com.satan.server</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/ayan/Documents/Vigil/.venv/bin/python</string>
-    <string>/Users/ayan/Documents/Vigil/trackers/mac_tracker.py</string>
+    <string>/Volumes/Projects/Vigil/.venv/bin/python</string>
+    <string>/Volumes/Projects/Vigil/backend/server.py</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/ayan/Documents/Vigil</string>
+  <string>/Volumes/Projects/Vigil</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONPATH</key>
+    <string>/Volumes/Projects/Vigil/backend</string>
+  </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -21,8 +26,8 @@
   <key>ThrottleInterval</key>
   <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>/Users/ayan/Documents/Vigil/data/vigil-tracker.log</string>
+  <string>/Volumes/Projects/Vigil/data/satan-server.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/ayan/Documents/Vigil/data/vigil-tracker.log</string>
+  <string>/Volumes/Projects/Vigil/data/satan-server.log</string>
 </dict>
 </plist>

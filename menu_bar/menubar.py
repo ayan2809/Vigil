@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal menu-bar controls for Vigil's local FastAPI server."""
+"""Minimal menu-bar controls for Satan's local FastAPI server."""
 
 from __future__ import annotations
 
@@ -21,13 +21,13 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 try:
-    from vigil.logger import setup_logger
-    logger = setup_logger("vigil.menubar", "vigil-menubar.log")
+    from satan.logger import setup_logger
+    logger = setup_logger("satan.menubar", "satan-menubar.log")
 except Exception:
     logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("vigil.menubar")
+    logger = logging.getLogger("satan.menubar")
 
-API_URL = os.environ.get("VIGIL_API_URL", "http://127.0.0.1:8200")
+API_URL = os.environ.get("SATAN_API_URL", os.environ.get("VIGIL_API_URL", "http://127.0.0.1:8200"))
 executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="menubar_worker")
 
 
@@ -54,10 +54,10 @@ def _make_http_request(method: str, path: str, payload: dict | None = None) -> d
         raise RuntimeError(detail) from error
     except URLError as error:
         logger.warning(f"URLError on {method} {path}: {error.reason}")
-        raise RuntimeError("Vigil server is not running") from error
+        raise RuntimeError("Satan server is not running") from error
 
 
-class VigilMenuBar(rumps.App):
+class SatanMenuBar(rumps.App):
     def __init__(self) -> None:
         super().__init__("◔", quit_button=None)
         self.status_item = rumps.MenuItem("Status: connecting…")
@@ -71,7 +71,7 @@ class VigilMenuBar(rumps.App):
             rumps.MenuItem("Open Dashboard", callback=self.open_dashboard),
             rumps.MenuItem("Refresh status", callback=self.refresh),
             None,
-            rumps.MenuItem("Quit Vigil Menu Bar", callback=rumps.quit_application),
+            rumps.MenuItem("Quit Satan Menu Bar", callback=rumps.quit_application),
         ]
 
     def open_dashboard(self, _sender) -> None:
@@ -80,7 +80,7 @@ class VigilMenuBar(rumps.App):
 
     def show_error(self, error: Exception) -> None:
         logger.error(f"UI Error: {error}")
-        rumps.alert("Vigil", str(error))
+        rumps.alert("Satan", str(error))
 
     def render_status(self, timer: dict) -> None:
         state = timer.get("status", "idle")
@@ -137,7 +137,7 @@ class VigilMenuBar(rumps.App):
 
 
 if __name__ == "__main__":
-    logger.info("Starting Vigil Menu Bar application...")
-    app = VigilMenuBar()
+    logger.info("Starting Satan Menu Bar application...")
+    app = SatanMenuBar()
     app.refresh()
     app.run()

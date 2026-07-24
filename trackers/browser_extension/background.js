@@ -1,11 +1,11 @@
-// Vigil browser extension event tracker with offline resilience queue.
+// Satan browser extension event tracker with offline resilience queue.
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8200/track";
 const MAX_QUEUE_SIZE = 20;
 let lastSignature = "";
 
 async function serverUrl() {
-  const { vigilServerUrl } = await chrome.storage.local.get("vigilServerUrl");
-  return vigilServerUrl || DEFAULT_SERVER_URL;
+  const { satanServerUrl, vigilServerUrl } = await chrome.storage.local.get(["satanServerUrl", "vigilServerUrl"]);
+  return satanServerUrl || vigilServerUrl || DEFAULT_SERVER_URL;
 }
 
 async function getQueue() {
@@ -71,7 +71,7 @@ async function sendOrQueue(payload) {
       await enqueueEvent(payload);
     }
   } catch (error) {
-    console.debug("Vigil webhook unavailable; queuing event.", error);
+    console.debug("Satan webhook unavailable; queuing event.", error);
     await enqueueEvent(payload);
   }
 }

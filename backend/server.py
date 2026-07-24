@@ -1,4 +1,4 @@
-"""Vigil local FastAPI server launcher."""
+"""Satan local FastAPI server launcher."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import uvicorn
-from vigil.main import app
+from satan.main import app
 
 if __name__ == "__main__":
-    uvicorn.run("vigil.main:app", host="127.0.0.1", port=8200, reload=False)
+    uvicorn.run("satan.main:app", host="127.0.0.1", port=8200, reload=False)

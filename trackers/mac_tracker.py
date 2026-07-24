@@ -29,13 +29,13 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 try:
-    from vigil.logger import setup_logger
-    logger = setup_logger("vigil.tracker", "vigil-tracker.log")
+    from satan.logger import setup_logger
+    logger = setup_logger("satan.tracker", "satan-tracker.log")
 except Exception:
     logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("vigil.tracker")
+    logger = logging.getLogger("satan.tracker")
 
-SERVER_URL = os.environ.get("VIGIL_TRACK_URL", "http://127.0.0.1:8200/track")
+SERVER_URL = os.environ.get("SATAN_TRACK_URL", os.environ.get("VIGIL_TRACK_URL", "http://127.0.0.1:8200/track"))
 executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mac_tracker_worker")
 
 

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Vigil Activity Tracker",
+  "name": "Satan Activity Tracker",
   "version": "0.1.0",
-  "description": "Sends active-tab changes to a local Vigil server.",
+  "description": "Sends active-tab changes to a local Satan server.",
   "permissions": ["tabs", "webNavigation", "storage"],
   "host_permissions": ["<all_urls>", "http://127.0.0.1:8200/*", "http://localhost:8200/*"],
   "background": {
@@ -10,6 +10,6 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Vigil tracking is active"
+    "default_title": "Satan tracking is active"
   }
 }

@@ -223,7 +223,7 @@ export default function App() {
       <header>
         <div>
           <p className="eyebrow">LOCAL ACTIVITY & FOCUS</p>
-          <h1>Vigil</h1>
+          <h1>Satan</h1>
         </div>
         <div style={{ display: "flex", gap: "0.55rem", alignItems: "center" }}>
           <button className="icon-btn" onClick={() => setShowSettings(true)} title="Settings" aria-label="Settings">

@@ -8,10 +8,19 @@ from pathlib import Path
 from typing import AsyncIterator
 
 import aiosqlite
-from vigil.logger import logger
+from satan.logger import logger
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DATABASE_PATH = Path(os.environ.get("VIGIL_DB_PATH", PROJECT_ROOT / "data" / "vigil.db"))
+_DEFAULT_DB = PROJECT_ROOT / "data" / "satan.db"
+_OLD_DB = PROJECT_ROOT / "data" / "vigil.db"
+if not _DEFAULT_DB.exists() and _OLD_DB.exists():
+    try:
+        import shutil
+        shutil.copyfile(_OLD_DB, _DEFAULT_DB)
+    except Exception:
+        pass
+
+DATABASE_PATH = Path(os.environ.get("SATAN_DB_PATH", _DEFAULT_DB))
 
 
 def local_now() -> datetime:

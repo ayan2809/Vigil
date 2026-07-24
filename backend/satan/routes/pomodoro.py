@@ -8,11 +8,11 @@ from typing import Any
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, status
-from vigil.audio import announce
-from vigil.db import get_db, iso_now, local_now
-from vigil.models import PomodoroStart
-from vigil.routes.tasks import get_task_or_404
-from vigil.timer import (
+from satan.audio import announce
+from satan.db import get_db, iso_now, local_now
+from satan.models import PomodoroStart
+from satan.routes.tasks import get_task_or_404
+from satan.timer import (
     cancel_timer_job,
     save_timer_state,
     schedule_phase_completion,

@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-# Dynamically generate launchd plists for Vigil using current working directory ($PWD)
+# Dynamically generate launchd plists for Satan using current working directory ($PWD)
 
 set -e
 
@@ -9,13 +9,13 @@ LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 
 mkdir -p "$LAUNCH_AGENTS_DIR"
 
-cat <<EOF > "$LAUNCH_AGENTS_DIR/com.vigil.server.plist"
+cat <<EOF > "$LAUNCH_AGENTS_DIR/com.satan.server.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.vigil.server</string>
+  <string>com.satan.server</string>
   <key>ProgramArguments</key>
   <array>
     <string>${VENV_PYTHON}</string>
@@ -38,20 +38,20 @@ cat <<EOF > "$LAUNCH_AGENTS_DIR/com.vigil.server.plist"
   <key>ThrottleInterval</key>
   <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>${PROJECT_DIR}/data/vigil-server.log</string>
+  <string>${PROJECT_DIR}/data/satan-server.log</string>
   <key>StandardErrorPath</key>
-  <string>${PROJECT_DIR}/data/vigil-server.log</string>
+  <string>${PROJECT_DIR}/data/satan-server.log</string>
 </dict>
 </plist>
 EOF
 
-cat <<EOF > "$LAUNCH_AGENTS_DIR/com.vigil.tracker.plist"
+cat <<EOF > "$LAUNCH_AGENTS_DIR/com.satan.tracker.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.vigil.tracker</string>
+  <string>com.satan.tracker</string>
   <key>ProgramArguments</key>
   <array>
     <string>${VENV_PYTHON}</string>
@@ -69,20 +69,20 @@ cat <<EOF > "$LAUNCH_AGENTS_DIR/com.vigil.tracker.plist"
   <key>ThrottleInterval</key>
   <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>${PROJECT_DIR}/data/vigil-tracker.log</string>
+  <string>${PROJECT_DIR}/data/satan-tracker.log</string>
   <key>StandardErrorPath</key>
-  <string>${PROJECT_DIR}/data/vigil-tracker.log</string>
+  <string>${PROJECT_DIR}/data/satan-tracker.log</string>
 </dict>
 </plist>
 EOF
 
-cat <<EOF > "$LAUNCH_AGENTS_DIR/com.vigil.menubar.plist"
+cat <<EOF > "$LAUNCH_AGENTS_DIR/com.satan.menubar.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.vigil.menubar</string>
+  <string>com.satan.menubar</string>
   <key>ProgramArguments</key>
   <array>
     <string>${VENV_PYTHON}</string>
@@ -100,20 +100,20 @@ cat <<EOF > "$LAUNCH_AGENTS_DIR/com.vigil.menubar.plist"
   <key>ThrottleInterval</key>
   <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>${PROJECT_DIR}/data/vigil-menubar.log</string>
+  <string>${PROJECT_DIR}/data/satan-menubar.log</string>
   <key>StandardErrorPath</key>
-  <string>${PROJECT_DIR}/data/vigil-menubar.log</string>
+  <string>${PROJECT_DIR}/data/satan-menubar.log</string>
 </dict>
 </plist>
 EOF
 
-cat <<EOF > "$LAUNCH_AGENTS_DIR/com.vigil.dashboard.plist"
+cat <<EOF > "$LAUNCH_AGENTS_DIR/com.satan.dashboard.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.vigil.dashboard</string>
+  <string>com.satan.dashboard</string>
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/npm</string>
@@ -139,9 +139,9 @@ cat <<EOF > "$LAUNCH_AGENTS_DIR/com.vigil.dashboard.plist"
   <key>ThrottleInterval</key>
   <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>${PROJECT_DIR}/data/vigil-dashboard.log</string>
+  <string>${PROJECT_DIR}/data/satan-dashboard.log</string>
   <key>StandardErrorPath</key>
-  <string>${PROJECT_DIR}/data/vigil-dashboard.log</string>
+  <string>${PROJECT_DIR}/data/satan-dashboard.log</string>
 </dict>
 </plist>
 EOF

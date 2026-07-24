@@ -6,9 +6,9 @@ from typing import Any
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from vigil.db import get_db, iso_now
-from vigil.models import TaskCreate, TaskUpdate
-from vigil.timer import timer_lock, timer_state
+from satan.db import get_db, iso_now
+from satan.models import TaskCreate, TaskUpdate
+from satan.timer import timer_lock, timer_state
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 

@@ -6,8 +6,8 @@ from typing import Any
 
 import aiosqlite
 from fastapi import APIRouter, Depends
-from vigil.db import get_db, iso_now
-from vigil.models import SettingsUpdate, UserSettings
+from satan.db import get_db, iso_now
+from satan.models import SettingsUpdate, UserSettings
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -75,7 +75,7 @@ async def update_settings(
 
     # If scheduler is active, update the nightly outbox generator trigger time
     try:
-        from vigil.scheduler import update_nightly_job_trigger
+        from satan.scheduler import update_nightly_job_trigger
         update_nightly_job_trigger(new_sleep_time)
     except Exception:
         pass

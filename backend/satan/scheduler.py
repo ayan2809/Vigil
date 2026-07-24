@@ -12,8 +12,8 @@ from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
-from vigil.db import get_db, iso_now, local_now
-from vigil.logger import logger
+from satan.db import get_db, iso_now, local_now
+from satan.logger import logger
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
@@ -114,8 +114,8 @@ async def generate_nightly_reflection_payload(target_date: str | None = None) ->
 
     focus_percent = round((total_focus / total_laptop) * 100) if total_laptop > 0 else 0
 
-    # Subject Line: Vigil ([Date]): [Total Focus] ([Focus %]%) / [Total Laptop] Total
-    subject = f"Vigil ({date_formatted}): {format_duration_short(total_focus)} Focus ({focus_percent}%) / {format_duration_short(total_laptop)} Total"
+    # Subject Line: Satan ([Date]): [Total Focus] ([Focus %]%) / [Total Laptop] Total
+    subject = f"Satan ({date_formatted}): {format_duration_short(total_focus)} Focus ({focus_percent}%) / {format_duration_short(total_laptop)} Total"
 
     # Body First Line: 🥇 [App1] ([Time]) | 🥈 [App2] ([Time]) | 🥉 [App3] ([Time])
     emojis = ["🥇", "🥈", "🥉"]
@@ -197,7 +197,7 @@ async def process_email_outbox_job() -> None:
         smtp_port = int(os.environ.get("SMTP_PORT", "587"))
         smtp_user = os.environ.get("SMTP_USER", "").strip()
         smtp_pass = os.environ.get("SMTP_PASSWORD", "").strip()
-        smtp_from = os.environ.get("SMTP_FROM", smtp_user or "vigil@local")
+        smtp_from = os.environ.get("SMTP_FROM", smtp_user or "satan@local")
 
         for row in pending_rows:
             outbox_id = row["id"]

@@ -10,10 +10,10 @@ from time import monotonic
 from typing import Any
 
 import aiosqlite
-from vigil.audio import announce
-from vigil.db import get_db, iso_now, local_now
-from vigil.logger import logger
-from vigil.models import DEFAULT_BREAK_SECONDS, DEFAULT_WORK_SECONDS, TimerState
+from satan.audio import announce
+from satan.db import get_db, iso_now, local_now
+from satan.logger import logger
+from satan.models import DEFAULT_BREAK_SECONDS, DEFAULT_WORK_SECONDS, TimerState
 
 timer_state = TimerState()
 timer_lock = asyncio.Lock()
@@ -182,7 +182,7 @@ async def finish_phase_after(seconds: int) -> None:
                         occurred.isoformat(timespec="seconds"),
                         occurred.date().isoformat(),
                         "app",
-                        "Vigil Focus Timer",
+                        "Satan Focus Timer",
                         None,
                         None,
                         f"Pomodoro Work Session Completed (Task ID: {timer_state.task_id})",

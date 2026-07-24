@@ -1,4 +1,4 @@
-"""Vigil FastAPI application factory and main entry point."""
+"""Satan FastAPI application factory and main entry point."""
 
 from __future__ import annotations
 
@@ -7,22 +7,22 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from vigil.db import cleanup_old_logs, initialize_database
-from vigil.logger import logger
-from vigil.routes import pomodoro, settings, summary, tasks, tracking
-from vigil.scheduler import shutdown_scheduler, start_scheduler
-from vigil.timer import cancel_timer_job, load_persisted_timer_state, timer_completion_job
+from satan.db import cleanup_old_logs, initialize_database
+from satan.logger import logger
+from satan.routes import pomodoro, settings, summary, tasks, tracking
+from satan.scheduler import shutdown_scheduler, start_scheduler
+from satan.timer import cancel_timer_job, load_persisted_timer_state, timer_completion_job
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    logger.info("Initializing Vigil backend server...")
+    logger.info("Initializing Satan backend server...")
     await initialize_database()
     await load_persisted_timer_state()
     await cleanup_old_logs(retention_days=30)
     await start_scheduler()
     yield
-    logger.info("Shutting down Vigil backend server...")
+    logger.info("Shutting down Satan backend server...")
     shutdown_scheduler()
     job = timer_completion_job
     cancel_timer_job()
@@ -31,7 +31,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             await job
 
 
-app = FastAPI(title="Vigil", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Satan", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

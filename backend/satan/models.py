@@ -1,4 +1,4 @@
-"""Pydantic schemas and dataclasses for Vigil backend."""
+"""Pydantic schemas and dataclasses for Satan backend."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-DEFAULT_WORK_SECONDS = int(os.environ.get("VIGIL_WORK_SECONDS", "1500"))
-DEFAULT_BREAK_SECONDS = int(os.environ.get("VIGIL_BREAK_SECONDS", "300"))
+DEFAULT_WORK_SECONDS = int(os.environ.get("SATAN_WORK_SECONDS", os.environ.get("VIGIL_WORK_SECONDS", "1500")))
+DEFAULT_BREAK_SECONDS = int(os.environ.get("SATAN_BREAK_SECONDS", os.environ.get("VIGIL_BREAK_SECONDS", "300")))
 
 
 class TaskCreate(BaseModel):
