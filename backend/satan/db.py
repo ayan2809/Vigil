@@ -47,6 +47,9 @@ async def get_db() -> AsyncIterator[aiosqlite.Connection]:
 
 
 DEFAULT_MONTHLY_GOAL = "Set your goal for the month here."
+DEFAULT_MONTHLY_GOALS = ["Set your goal for the month here."]
+import json
+DEFAULT_MONTHLY_GOALS_JSON = json.dumps(DEFAULT_MONTHLY_GOALS)
 DEFAULT_CORE_VALUES = [
     "20 min emotional audit (written, action-oriented)",
     "Meaningful connection with Mom (presence > venting)",
@@ -62,7 +65,6 @@ DEFAULT_CORE_VALUES = [
     "Apply the 'Friend Test'",
     "Past wounds don't get to write the rules for future relationships",
 ]
-import json
 DEFAULT_CORE_VALUES_JSON = json.dumps(DEFAULT_CORE_VALUES)
 
 
@@ -121,6 +123,7 @@ async def initialize_database() -> None:
                 sleep_time TEXT NOT NULL DEFAULT '23:00',
                 reflection_email TEXT,
                 monthly_goal TEXT,
+                monthly_goals TEXT,
                 core_values TEXT,
                 updated_at TEXT NOT NULL
             );
@@ -146,19 +149,22 @@ async def initialize_database() -> None:
 
         if "monthly_goal" not in columns:
             await connection.execute("ALTER TABLE user_settings ADD COLUMN monthly_goal TEXT")
+        if "monthly_goals" not in columns:
+            await connection.execute("ALTER TABLE user_settings ADD COLUMN monthly_goals TEXT")
         if "core_values" not in columns:
             await connection.execute("ALTER TABLE user_settings ADD COLUMN core_values TEXT")
 
         # Seed initial default row id=1
         await connection.execute(
             """
-            INSERT INTO user_settings (id, pomodoro_duration_minutes, sleep_time, reflection_email, monthly_goal, core_values, updated_at)
-            VALUES (1, 25, '23:00', NULL, ?, ?, datetime('now'))
+            INSERT INTO user_settings (id, pomodoro_duration_minutes, sleep_time, reflection_email, monthly_goal, monthly_goals, core_values, updated_at)
+            VALUES (1, 25, '23:00', NULL, ?, ?, ?, datetime('now'))
             ON CONFLICT(id) DO UPDATE SET
                 monthly_goal = COALESCE(user_settings.monthly_goal, excluded.monthly_goal),
+                monthly_goals = COALESCE(user_settings.monthly_goals, excluded.monthly_goals),
                 core_values = COALESCE(user_settings.core_values, excluded.core_values);
             """,
-            (DEFAULT_MONTHLY_GOAL, DEFAULT_CORE_VALUES_JSON),
+            (DEFAULT_MONTHLY_GOAL, DEFAULT_MONTHLY_GOALS_JSON, DEFAULT_CORE_VALUES_JSON),
         )
 
         await connection.commit()

@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS PersistentTimerState (
 ```
 
 #### 5. `user_settings`
-Singleton table (`id = 1`) storing user preferences, monthly focus goal, core values / intentions, and email outbox config.
+Singleton table (`id = 1`) storing user preferences, monthly focus goals array, core values / intentions, and email outbox config.
 
 ```sql
 CREATE TABLE IF NOT EXISTS user_settings (
@@ -168,7 +168,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
     pomodoro_duration_minutes INTEGER NOT NULL DEFAULT 25,
     sleep_time TEXT NOT NULL DEFAULT '23:00',
     reflection_email TEXT,                     -- Target email address for outbox delivery
-    monthly_goal TEXT,                         -- Current monthly focus goal string
+    monthly_goal TEXT,                         -- Primary monthly focus goal string
+    monthly_goals TEXT,                        -- JSON array of monthly focus goals
     core_values TEXT,                          -- JSON array of core values / principles
     updated_at TEXT NOT NULL
 );

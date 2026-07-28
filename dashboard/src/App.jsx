@@ -58,12 +58,28 @@ function formatHeatmapTooltip(focusSeconds = 0, laptopSeconds = 0) {
 }
 
 
-function MonthlyGoalBanner({ goal }) {
-  if (!goal) return null;
+function MonthlyGoalBanner({ goals = [], goal = "" }) {
+  const list = Array.isArray(goals) && goals.length > 0
+    ? goals
+    : (goal ? [goal] : []);
+
+  if (!list.length) return null;
+
   return (
     <div className="monthly-goal-banner">
-      <p className="eyebrow">MONTHLY FOCUS GOAL</p>
-      <p className="goal-text">“{goal}”</p>
+      <p className="eyebrow">{list.length > 1 ? "MONTHLY FOCUS GOALS" : "MONTHLY FOCUS GOAL"}</p>
+      {list.length === 1 ? (
+        <p className="goal-text">“{list[0]}”</p>
+      ) : (
+        <ul className="goals-list">
+          {list.map((item, index) => (
+            <li key={index} className="goal-item">
+              <span className="goal-bullet">🎯</span>
+              <span className="goal-text">“{item}”</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -104,6 +120,7 @@ export default function App() {
     sleep_time: "23:00",
     reflection_email: "",
     monthly_goal: "",
+    monthly_goals: [],
     core_values: [],
   });
   const [title, setTitle] = useState("");
@@ -117,7 +134,7 @@ export default function App() {
     pomodoro_duration_minutes: 25,
     sleep_time: "23:00",
     reflection_email: "",
-    monthly_goal: "",
+    monthly_goals_text: "",
     core_values_text: "",
   });
   const [savingSettings, setSavingSettings] = useState(false);
@@ -141,11 +158,14 @@ export default function App() {
       setTimer(nextTimer);
       if (nextSettings) {
         setUserSettings(nextSettings);
+        const goalsText = (nextSettings.monthly_goals && nextSettings.monthly_goals.length > 0)
+          ? nextSettings.monthly_goals.join("\n")
+          : (nextSettings.monthly_goal || "");
         setSettingsForm({
           pomodoro_duration_minutes: nextSettings.pomodoro_duration_minutes || 25,
           sleep_time: nextSettings.sleep_time || "23:00",
           reflection_email: nextSettings.reflection_email || "",
-          monthly_goal: nextSettings.monthly_goal || "",
+          monthly_goals_text: goalsText,
           core_values_text: (nextSettings.core_values || []).join("\n"),
         });
       }
@@ -187,6 +207,11 @@ export default function App() {
     setSettingsError("");
     setSettingsSuccess("");
     try {
+      const monthlyGoalsArray = settingsForm.monthly_goals_text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
       const coreValuesArray = settingsForm.core_values_text
         .split("\n")
         .map((line) => line.trim())
@@ -198,13 +223,14 @@ export default function App() {
           pomodoro_duration_minutes: Number(settingsForm.pomodoro_duration_minutes),
           sleep_time: settingsForm.sleep_time,
           reflection_email: settingsForm.reflection_email.trim() || null,
-          monthly_goal: settingsForm.monthly_goal.trim() || null,
+          monthly_goals: monthlyGoalsArray,
           core_values: coreValuesArray,
         }),
       });
       setUserSettings(updated);
       setSettingsForm((prev) => ({
         ...prev,
+        monthly_goals_text: (updated.monthly_goals || []).join("\n"),
         core_values_text: (updated.core_values || []).join("\n"),
       }));
       setSettingsSuccess("Settings saved successfully!");
@@ -323,7 +349,7 @@ export default function App() {
         </section>
       </div>
 
-      <MonthlyGoalBanner goal={userSettings.monthly_goal} />
+      <MonthlyGoalBanner goals={userSettings.monthly_goals} goal={userSettings.monthly_goal} />
 
       <section className="card">
         <div className="section-heading">
@@ -486,13 +512,14 @@ export default function App() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="monthly_goal">Monthly Focus Goal</label>
-                <input
-                  id="monthly_goal"
-                  type="text"
-                  placeholder="Set your goal for the month here."
-                  value={settingsForm.monthly_goal || ""}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, monthly_goal: e.target.value })}
+                <label htmlFor="monthly_goals">Monthly Focus Goals (One per line)</label>
+                <textarea
+                  id="monthly_goals"
+                  rows="3"
+                  placeholder="Set your goals for the month here (one per line)..."
+                  value={settingsForm.monthly_goals_text || ""}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, monthly_goals_text: e.target.value })}
+                  style={{ width: "100%", background: "#111c29", color: "#eaf1f8", border: "1px solid #344a61", borderRadius: "8px", padding: "0.65rem", fontFamily: "inherit", resize: "vertical" }}
                 />
               </div>
               <div className="form-group">

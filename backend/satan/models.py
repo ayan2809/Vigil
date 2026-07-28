@@ -56,6 +56,7 @@ class UserSettings(BaseModel):
     sleep_time: str = Field(default="23:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     reflection_email: str | None = Field(default=None, max_length=320)
     monthly_goal: str | None = Field(default=None, max_length=2000)
+    monthly_goals: list[str] = Field(default_factory=list)
     core_values: list[str] = Field(default_factory=list)
 
 
@@ -64,5 +65,6 @@ class SettingsUpdate(BaseModel):
     sleep_time: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     reflection_email: str | None = Field(default=None, max_length=320)
     monthly_goal: str | None = Field(default=None, max_length=2000)
+    monthly_goals: list[str] | None = Field(default=None)
     core_values: list[str] | None = Field(default=None)
 
