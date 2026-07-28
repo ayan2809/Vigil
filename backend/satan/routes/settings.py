@@ -1,12 +1,9 @@
-"""User settings API router."""
-
-from __future__ import annotations
-
+import json
 from typing import Any
 
 import aiosqlite
 from fastapi import APIRouter, Depends
-from satan.db import get_db, iso_now
+from satan.db import DEFAULT_CORE_VALUES, DEFAULT_MONTHLY_GOAL, get_db, iso_now
 from satan.models import SettingsUpdate, UserSettings
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -18,23 +15,41 @@ async def get_user_settings(db: aiosqlite.Connection) -> dict[str, Any]:
     await cursor.close()
     if not row:
         now = iso_now()
+        default_values_json = json.dumps(DEFAULT_CORE_VALUES)
         await db.execute(
             """
-            INSERT INTO user_settings (id, pomodoro_duration_minutes, sleep_time, reflection_email, updated_at)
-            VALUES (1, 25, '23:00', NULL, ?)
+            INSERT INTO user_settings (id, pomodoro_duration_minutes, sleep_time, reflection_email, monthly_goal, core_values, updated_at)
+            VALUES (1, 25, '23:00', NULL, ?, ?, ?)
             """,
-            (now,),
+            (DEFAULT_MONTHLY_GOAL, default_values_json, now),
         )
         await db.commit()
         return {
             "pomodoro_duration_minutes": 25,
             "sleep_time": "23:00",
             "reflection_email": None,
+            "monthly_goal": DEFAULT_MONTHLY_GOAL,
+            "core_values": DEFAULT_CORE_VALUES,
         }
+
+    keys = row.keys()
+    monthly_goal_val = row["monthly_goal"] if ("monthly_goal" in keys and row["monthly_goal"] is not None) else DEFAULT_MONTHLY_GOAL
+
+    core_values_raw = row["core_values"] if ("core_values" in keys and row["core_values"]) else None
+    if core_values_raw:
+        try:
+            core_values_list = json.loads(core_values_raw)
+        except Exception:
+            core_values_list = DEFAULT_CORE_VALUES
+    else:
+        core_values_list = DEFAULT_CORE_VALUES
+
     return {
         "pomodoro_duration_minutes": row["pomodoro_duration_minutes"],
         "sleep_time": row["sleep_time"],
         "reflection_email": row["reflection_email"],
+        "monthly_goal": monthly_goal_val,
+        "core_values": core_values_list,
     }
 
 
@@ -59,6 +74,13 @@ async def update_settings(
     if new_email is not None and not new_email.strip():
         new_email = None
 
+    new_goal = changes.get("monthly_goal", current["monthly_goal"])
+    new_values = changes.get("core_values", current["core_values"])
+    if isinstance(new_values, list):
+        new_values_json = json.dumps(new_values)
+    else:
+        new_values_json = json.dumps(current.get("core_values") or DEFAULT_CORE_VALUES)
+
     now = iso_now()
     await db.execute(
         """
@@ -66,10 +88,12 @@ async def update_settings(
         SET pomodoro_duration_minutes = ?,
             sleep_time = ?,
             reflection_email = ?,
+            monthly_goal = ?,
+            core_values = ?,
             updated_at = ?
         WHERE id = 1
         """,
-        (new_duration, new_sleep_time, new_email, now),
+        (new_duration, new_sleep_time, new_email, new_goal, new_values_json, now),
     )
     await db.commit()
 
@@ -84,4 +108,6 @@ async def update_settings(
         "pomodoro_duration_minutes": new_duration,
         "sleep_time": new_sleep_time,
         "reflection_email": new_email,
+        "monthly_goal": new_goal,
+        "core_values": new_values if isinstance(new_values, list) else current.get("core_values", DEFAULT_CORE_VALUES),
     }

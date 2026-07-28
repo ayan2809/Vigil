@@ -46,6 +46,26 @@ async def get_db() -> AsyncIterator[aiosqlite.Connection]:
         await connection.close()
 
 
+DEFAULT_MONTHLY_GOAL = "Set your goal for the month here."
+DEFAULT_CORE_VALUES = [
+    "20 min emotional audit (written, action-oriented)",
+    "Meaningful connection with Mom (presence > venting)",
+    "AI used as tool, never as emotional authority",
+    "Screen time < 2 hrs with penalties if crossed",
+    "No half-attachments or emotional crutches while building goals",
+    "Ask who should I be today",
+    "Keep those promises to yourself",
+    "Detach emotions from end goals; attach to small wins over the day",
+    "Ban 'At Least'",
+    "Track Actions, Ignore Intentions",
+    "Kill the 'Right Time'",
+    "Apply the 'Friend Test'",
+    "Past wounds don't get to write the rules for future relationships",
+]
+import json
+DEFAULT_CORE_VALUES_JSON = json.dumps(DEFAULT_CORE_VALUES)
+
+
 async def initialize_database() -> None:
     """Initialize database tables, views, and indexes."""
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -100,12 +120,10 @@ async def initialize_database() -> None:
                 pomodoro_duration_minutes INTEGER NOT NULL DEFAULT 25,
                 sleep_time TEXT NOT NULL DEFAULT '23:00',
                 reflection_email TEXT,
+                monthly_goal TEXT,
+                core_values TEXT,
                 updated_at TEXT NOT NULL
             );
-
-            INSERT INTO user_settings (id, pomodoro_duration_minutes, sleep_time, reflection_email, updated_at)
-            VALUES (1, 25, '23:00', NULL, datetime('now'))
-            ON CONFLICT(id) DO NOTHING;
 
             CREATE TABLE IF NOT EXISTS email_outbox (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,8 +138,31 @@ async def initialize_database() -> None:
             CREATE INDEX IF NOT EXISTS idx_email_outbox_sent ON email_outbox (is_sent, target_date);
             """
         )
+
+        # Migration check for existing user_settings table
+        cursor = await connection.execute("PRAGMA table_info(user_settings)")
+        columns = [row["name"] for row in await cursor.fetchall()]
+        await cursor.close()
+
+        if "monthly_goal" not in columns:
+            await connection.execute("ALTER TABLE user_settings ADD COLUMN monthly_goal TEXT")
+        if "core_values" not in columns:
+            await connection.execute("ALTER TABLE user_settings ADD COLUMN core_values TEXT")
+
+        # Seed initial default row id=1
+        await connection.execute(
+            """
+            INSERT INTO user_settings (id, pomodoro_duration_minutes, sleep_time, reflection_email, monthly_goal, core_values, updated_at)
+            VALUES (1, 25, '23:00', NULL, ?, ?, datetime('now'))
+            ON CONFLICT(id) DO UPDATE SET
+                monthly_goal = COALESCE(user_settings.monthly_goal, excluded.monthly_goal),
+                core_values = COALESCE(user_settings.core_values, excluded.core_values);
+            """,
+            (DEFAULT_MONTHLY_GOAL, DEFAULT_CORE_VALUES_JSON),
+        )
+
         await connection.commit()
-        logger.info("Database initialized successfully with user_settings, email_outbox, and PersistentTimerState schemas.")
+        logger.info("Database initialized successfully with user_settings (monthly_goal & core_values), email_outbox, and PersistentTimerState schemas.")
 
 
 async def cleanup_old_logs(retention_days: int = 30) -> None:

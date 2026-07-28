@@ -55,10 +55,14 @@ class UserSettings(BaseModel):
     pomodoro_duration_minutes: int = Field(default=25, ge=1, le=120)
     sleep_time: str = Field(default="23:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     reflection_email: str | None = Field(default=None, max_length=320)
+    monthly_goal: str | None = Field(default=None, max_length=2000)
+    core_values: list[str] = Field(default_factory=list)
 
 
 class SettingsUpdate(BaseModel):
     pomodoro_duration_minutes: int | None = Field(default=None, ge=1, le=120)
     sleep_time: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     reflection_email: str | None = Field(default=None, max_length=320)
+    monthly_goal: str | None = Field(default=None, max_length=2000)
+    core_values: list[str] | None = Field(default=None)
 

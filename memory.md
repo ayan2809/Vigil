@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS PersistentTimerState (
 ```
 
 #### 5. `user_settings`
-Singleton table (`id = 1`) storing user preferences and email outbox config.
+Singleton table (`id = 1`) storing user preferences, monthly focus goal, core values / intentions, and email outbox config.
 
 ```sql
 CREATE TABLE IF NOT EXISTS user_settings (
@@ -168,6 +168,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
     pomodoro_duration_minutes INTEGER NOT NULL DEFAULT 25,
     sleep_time TEXT NOT NULL DEFAULT '23:00',
     reflection_email TEXT,                     -- Target email address for outbox delivery
+    monthly_goal TEXT,                         -- Current monthly focus goal string
+    core_values TEXT,                          -- JSON array of core values / principles
     updated_at TEXT NOT NULL
 );
 ```
@@ -256,6 +258,16 @@ Active app durations are computed dynamically in SQLite using window functions w
   - Generates WatchOS-formatted subject: `Satan (Jul 24): 1h 40m Focus (15%) / 10h 58m Total`
   - Body first line: `🥇 Arc (8h 13m) | 🥈 Antigravity IDE (1h 4m) | 🥉 IntelliJ IDEA (39m)`
 - **Queue Processor Job**: Runs every 5 minutes to deliver unsent outbox rows (`is_sent = 0`) via SMTP (`smtplib` with TLS).
+
+### 4. Intent vs. Reality Dashboard Philosophy
+The React Dashboard ([App.jsx](file:///Volumes/Projects/Vigil/dashboard/src/App.jsx)) enforces a strict **Intent vs. Reality** visual architecture:
+- **Top Row**: Live Work Session Pomodoro Clock + Laptop Time Today.
+- **Monthly Goal Banner**: Minimalistic, centered banner displaying `monthly_goal` positioned directly below top stats and above the 28-day activity heatmap.
+- **Left Column ("Intent")**:
+  - **Focus Queue**: Task list with session estimations & status toggles.
+  - **Daily Rules (`DailyValues`)**: Scrollable container (`max-h-64` / `16rem`) displaying `core_values` ground rules with custom scrollbar.
+- **Right Column ("Reality")**:
+  - **Time Breakdown**: Active app and domain time summary logged by background event trackers.
 
 ### 4. Non-Blocking I/O in Desktop & Menu Bar Apps
 - `mac_tracker.py` uses PyObjC `NSWorkspace` notifications. Webhook HTTP POST calls are offloaded to `ThreadPoolExecutor(max_workers=2)` so the Cocoa run loop (`AppHelper.runConsoleEventLoop`) never freezes.

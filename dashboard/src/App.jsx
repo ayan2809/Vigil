@@ -58,13 +58,54 @@ function formatHeatmapTooltip(focusSeconds = 0, laptopSeconds = 0) {
 }
 
 
+function MonthlyGoalBanner({ goal }) {
+  if (!goal) return null;
+  return (
+    <div className="monthly-goal-banner">
+      <p className="eyebrow">MONTHLY FOCUS GOAL</p>
+      <p className="goal-text">“{goal}”</p>
+    </div>
+  );
+}
+
+function DailyValues({ values = [] }) {
+  return (
+    <section className="card daily-values-card" style={{ marginBottom: 0 }}>
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">INTENTIONS & GROUND RULES</p>
+          <h2>Daily rules</h2>
+        </div>
+        <span>{values.length} core principles</span>
+      </div>
+      <div className="values-container">
+        <ul className="values-list">
+          {values.map((item, index) => (
+            <li key={index} className="value-item">
+              <span className="value-bullet">•</span>
+              <span className="value-text">{item}</span>
+            </li>
+          ))}
+          {!values.length && <li className="empty">No core values set.</li>}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const [selectedDate, setSelectedDate] = useState(today());
   const [tasks, setTasks] = useState([]);
   const [activeTimeBreakdown, setActiveTimeBreakdown] = useState({ totalSeconds: 0, apps: [] });
   const [summary, setSummary] = useState([]);
   const [timer, setTimer] = useState({ status: "idle", phase: "work", remaining_seconds: 0 });
-  const [userSettings, setUserSettings] = useState({ pomodoro_duration_minutes: 25, sleep_time: "23:00", reflection_email: "" });
+  const [userSettings, setUserSettings] = useState({
+    pomodoro_duration_minutes: 25,
+    sleep_time: "23:00",
+    reflection_email: "",
+    monthly_goal: "",
+    core_values: [],
+  });
   const [title, setTitle] = useState("");
   const [estimate, setEstimate] = useState(1);
   const [error, setError] = useState("");
@@ -72,7 +113,13 @@ export default function App() {
 
   // Settings modal states
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsForm, setSettingsForm] = useState({ pomodoro_duration_minutes: 25, sleep_time: "23:00", reflection_email: "" });
+  const [settingsForm, setSettingsForm] = useState({
+    pomodoro_duration_minutes: 25,
+    sleep_time: "23:00",
+    reflection_email: "",
+    monthly_goal: "",
+    core_values_text: "",
+  });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState("");
   const [settingsError, setSettingsError] = useState("");
@@ -98,6 +145,8 @@ export default function App() {
           pomodoro_duration_minutes: nextSettings.pomodoro_duration_minutes || 25,
           sleep_time: nextSettings.sleep_time || "23:00",
           reflection_email: nextSettings.reflection_email || "",
+          monthly_goal: nextSettings.monthly_goal || "",
+          core_values_text: (nextSettings.core_values || []).join("\n"),
         });
       }
     } catch (nextError) {
@@ -138,15 +187,26 @@ export default function App() {
     setSettingsError("");
     setSettingsSuccess("");
     try {
+      const coreValuesArray = settingsForm.core_values_text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
       const updated = await request("/settings", {
         method: "PUT",
         body: JSON.stringify({
           pomodoro_duration_minutes: Number(settingsForm.pomodoro_duration_minutes),
           sleep_time: settingsForm.sleep_time,
           reflection_email: settingsForm.reflection_email.trim() || null,
+          monthly_goal: settingsForm.monthly_goal.trim() || null,
+          core_values: coreValuesArray,
         }),
       });
       setUserSettings(updated);
+      setSettingsForm((prev) => ({
+        ...prev,
+        core_values_text: (updated.core_values || []).join("\n"),
+      }));
       setSettingsSuccess("Settings saved successfully!");
       setTimeout(() => setSettingsSuccess(""), 3000);
     } catch (err) {
@@ -263,6 +323,8 @@ export default function App() {
         </section>
       </div>
 
+      <MonthlyGoalBanner goal={userSettings.monthly_goal} />
+
       <section className="card">
         <div className="section-heading">
           <div>
@@ -288,39 +350,43 @@ export default function App() {
       </section>
 
       <div className="columns">
-        <section className="card">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">POMODORO TASKS</p>
-              <h2>Focus queue</h2>
+        <div className="left-column">
+          <section className="card" style={{ marginBottom: 0 }}>
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">POMODORO TASKS</p>
+                <h2>Focus queue</h2>
+              </div>
             </div>
-          </div>
-          <form className="task-form" onSubmit={addTask}>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What needs focus?" maxLength="200" />
-            <input type="number" min="1" max="99" value={estimate} onChange={(event) => setEstimate(event.target.value)} aria-label="Estimated Pomodoros" />
-            <button>Add</button>
-          </form>
-          <ul className="tasks">
-            {tasks.map((task) => (
-              <li key={task.id}>
-                <button
-                  className={`check ${task.status === "done" ? "checked" : ""}`}
-                  aria-label={`Mark ${task.title} ${task.status === "done" ? "todo" : "done"}`}
-                  onClick={() => updateTask(task, { status: task.status === "done" ? "todo" : "done" })}
-                >
-                  {task.status === "done" ? "✓" : ""}
-                </button>
-                <div className="task-copy">
-                  <strong className={task.status === "done" ? "complete" : ""}>{task.title}</strong>
-                  <span>{task.completed_pomodoros}/{task.estimate_pomodoros} sessions</span>
-                </div>
-                <button className="icon" title="Start this task" onClick={() => startTask(task)}>▶</button>
-                <button className="icon" title="Delete task" onClick={() => deleteTask(task)}>×</button>
-              </li>
-            ))}
-            {!tasks.length && <li className="empty">Add a task to begin a focused session.</li>}
-          </ul>
-        </section>
+            <form className="task-form" onSubmit={addTask}>
+              <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What needs focus?" maxLength="200" />
+              <input type="number" min="1" max="99" value={estimate} onChange={(event) => setEstimate(event.target.value)} aria-label="Estimated Pomodoros" />
+              <button>Add</button>
+            </form>
+            <ul className="tasks">
+              {tasks.map((task) => (
+                <li key={task.id}>
+                  <button
+                    className={`check ${task.status === "done" ? "checked" : ""}`}
+                    aria-label={`Mark ${task.title} ${task.status === "done" ? "todo" : "done"}`}
+                    onClick={() => updateTask(task, { status: task.status === "done" ? "todo" : "done" })}
+                  >
+                    {task.status === "done" ? "✓" : ""}
+                  </button>
+                  <div className="task-copy">
+                    <strong className={task.status === "done" ? "complete" : ""}>{task.title}</strong>
+                    <span>{task.completed_pomodoros}/{task.estimate_pomodoros} sessions</span>
+                  </div>
+                  <button className="icon" title="Start this task" onClick={() => startTask(task)}>▶</button>
+                  <button className="icon" title="Delete task" onClick={() => deleteTask(task)}>×</button>
+                </li>
+              ))}
+              {!tasks.length && <li className="empty">Add a task to begin a focused session.</li>}
+            </ul>
+          </section>
+
+          <DailyValues values={userSettings.core_values} />
+        </div>
 
         <section className="card" style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
           <div className="section-heading">
@@ -417,6 +483,27 @@ export default function App() {
                   placeholder="user@example.com"
                   value={settingsForm.reflection_email || ""}
                   onChange={(e) => setSettingsForm({ ...settingsForm, reflection_email: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="monthly_goal">Monthly Focus Goal</label>
+                <input
+                  id="monthly_goal"
+                  type="text"
+                  placeholder="Set your goal for the month here."
+                  value={settingsForm.monthly_goal || ""}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, monthly_goal: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="core_values">Daily Rules & Core Values (One per line)</label>
+                <textarea
+                  id="core_values"
+                  rows="6"
+                  placeholder="Enter core principles (one per line)..."
+                  value={settingsForm.core_values_text || ""}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, core_values_text: e.target.value })}
+                  style={{ width: "100%", background: "#111c29", color: "#eaf1f8", border: "1px solid #344a61", borderRadius: "8px", padding: "0.65rem", fontFamily: "inherit", resize: "vertical" }}
                 />
               </div>
               {settingsError && <p className="error">{settingsError}</p>}
