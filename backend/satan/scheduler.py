@@ -232,11 +232,44 @@ async def process_email_outbox_job() -> None:
                 break
 
 
+async def check_and_backfill_missing_reflections(lookback_days: int = 7) -> None:
+    """Check recent days (up to lookback_days) and generate outbox records for any date that had activity but was missed."""
+    current_date = local_now().date()
+    for i in range(1, lookback_days + 1):
+        target_date = (current_date - timedelta(days=i)).isoformat()
+        already_queued = False
+        async for db in get_db():
+            cursor = await db.execute("SELECT id FROM email_outbox WHERE target_date = ?", (target_date,))
+            existing = await cursor.fetchone()
+            await cursor.close()
+            if existing:
+                already_queued = True
+                break
+
+        if already_queued:
+            continue
+
+        res = await generate_nightly_reflection_payload(target_date)
+        if res is not None:
+            subject, body, _ = res
+            now_str = iso_now()
+            async for db in get_db():
+                await db.execute(
+                    """
+                    INSERT INTO email_outbox (target_date, subject, body, is_sent, created_at)
+                    VALUES (?, ?, ?, 0, ?)
+                    """,
+                    (target_date, subject, body, now_str),
+                )
+                await db.commit()
+                logger.info(f"Backfilled missing nightly reflection email for {target_date} into email_outbox.")
+
+
 def update_nightly_job_trigger(sleep_time_str: str) -> None:
     """Reschedule the nightly generator job when sleep_time changes."""
     hour, minute = parse_sleep_time_to_trigger(sleep_time_str)
     if scheduler.get_job(NIGHTLY_JOB_ID):
-        scheduler.reschedule_job(NIGHTLY_JOB_ID, trigger="cron", hour=hour, minute=minute)
+        scheduler.reschedule_job(NIGHTLY_JOB_ID, trigger="cron", hour=hour, minute=minute, misfire_grace_time=3600, coalesce=True)
         logger.info(f"Rescheduled nightly reflection generator to fire daily at {hour:02d}:{minute:02d}.")
 
 
@@ -258,6 +291,8 @@ async def start_scheduler() -> None:
             minute=minute,
             id=NIGHTLY_JOB_ID,
             replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
         )
 
     if not scheduler.get_job(PROCESSOR_JOB_ID):
@@ -267,11 +302,20 @@ async def start_scheduler() -> None:
             minutes=5,
             id=PROCESSOR_JOB_ID,
             replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
         )
 
     if not scheduler.running:
         scheduler.start()
         logger.info(f"APScheduler started. Nightly reflection generator active at {hour:02d}:{minute:02d}, outbox processor interval: 5m.")
+
+    # Check and backfill any missed reflections for past days upon startup
+    try:
+        await check_and_backfill_missing_reflections(7)
+        await process_email_outbox_job()
+    except Exception as exc:
+        logger.error(f"Error backfilling missing reflection emails on startup: {exc}")
 
 
 def shutdown_scheduler() -> None:

@@ -253,11 +253,13 @@ Active app durations are computed dynamically in SQLite using window functions w
 - On server lifespan startup (`load_persisted_timer_state`), elapsed wall-clock time is computed (`ends_at - now`) to automatically resume or auto-complete sessions expired while offline.
 - When a work phase finishes, task `completed_pomodoros` is incremented, audio feedback (`"Work interval complete. Take a break."`) is triggered via macOS TTS, and an audit record (`event_type: 'pomodoro_completed'`) is inserted into `TrackingLogs`.
 
-### 3. Outbox Pattern for Nightly Reflections
+### 3. Outbox Pattern & Sleep-Resilient Nightly Reflections
 - **Generator Job**: Scheduled via APScheduler to fire daily at `Sleep Time - 15 minutes`.
   - **Critical Rule**: If total screen time for the date is `0`, generation is skipped.
   - Generates WatchOS-formatted subject: `Satan (Jul 24): 1h 40m Focus (15%) / 10h 58m Total`
   - Body first line: `🥇 Arc (8h 13m) | 🥈 Antigravity IDE (1h 4m) | 🥉 IntelliJ IDEA (39m)`
+- **Sleep-Resilient Misfire Configuration**: Both generator and processor jobs use `misfire_grace_time=3600` (1 hour) and `coalesce=True`. If the Mac is sleeping during the exact trigger minute (e.g. 22:45), APScheduler executes the job upon wake-up instead of dropping it as missed.
+- **Startup Backfill Catch-Up (`check_and_backfill_missing_reflections`)**: On server startup, automatically scans recent dates (past 7 days). If any date with recorded activity has no outbox record, the system generates and queues the missing reflection email and immediately triggers SMTP dispatch.
 - **Queue Processor Job**: Runs every 5 minutes to deliver unsent outbox rows (`is_sent = 0`) via SMTP (`smtplib` with TLS).
 
 ### 4. Intent vs. Reality Dashboard Philosophy
