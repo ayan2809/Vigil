@@ -12,6 +12,7 @@ from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
+from satan.activity import get_app_durations, get_daily_activity_records
 from satan.db import get_db, iso_now, local_now
 from satan.logger import logger
 
@@ -57,52 +58,17 @@ async def generate_nightly_reflection_payload(target_date: str | None = None) ->
     date_formatted = dt.strftime("%b %-d") if hasattr(dt, "strftime") else dt.strftime("%b %d")
 
     async for db in get_db():
-        # Query total laptop time and app breakdown
-        query_apps = """
-        WITH EventWindow AS (
-            SELECT
-                source,
-                COALESCE(application_name, CASE WHEN source = 'browser' THEN 'Arc' ELSE 'Unknown App' END) AS app_name,
-                domain,
-                occurred_at,
-                LEAD(occurred_at) OVER (ORDER BY occurred_at ASC) AS next_occurred_at
-            FROM TrackingLogs
-            WHERE local_date = ? AND event_type != 'pomodoro_completed'
-              AND COALESCE(application_name, '') NOT IN ('loginwindow', 'ScreenSaverEngine')
-        ),
-        EventDurations AS (
-            SELECT
-                source,
-                app_name,
-                domain,
-                CASE
-                    WHEN next_occurred_at IS NOT NULL THEN
-                        MIN(MAX(0, CAST((strftime('%s', next_occurred_at) - strftime('%s', occurred_at)) AS INTEGER)), 900)
-                    WHEN ? = ? THEN
-                        MIN(MAX(0, CAST((strftime('%s', 'now', 'localtime') - strftime('%s', occurred_at)) AS INTEGER)), 900)
-                    ELSE 60
-                END AS duration
-            FROM EventWindow
-        )
-        SELECT app_name, SUM(duration) AS total_duration
-        FROM EventDurations
-        WHERE duration > 0
-        GROUP BY app_name
-        ORDER BY total_duration DESC;
-        """
-        cursor = await db.execute(query_apps, (today_str, today_str, local_now().date().isoformat()))
-        app_rows = await cursor.fetchall()
-        await cursor.close()
+        rows = await get_app_durations(db, today_str)
+        focus_records = await get_daily_activity_records(db, dt.date(), dt.date())
 
-        # Query total focus time
-        query_focus = """
-        SELECT SUM(COALESCE(CAST(json_extract(metadata_json, '$.duration_seconds') AS INTEGER), 1500)) AS total_focus
-        FROM TrackingLogs
-        WHERE local_date = ? AND event_type = 'pomodoro_completed';
-        """
-        cursor = await db.execute(query_focus, (today_str,))
-        focus_row = await cursor.fetchone()
-        await cursor.close()
+    by_app: dict[str, int] = {}
+    for row in rows:
+        by_app[row["app_name"]] = by_app.get(row["app_name"], 0) + row["total_duration"]
+    app_rows = [
+        {"app_name": name, "total_duration": seconds}
+        for name, seconds in sorted(by_app.items(), key=lambda item: item[1], reverse=True)
+    ]
+    focus_row = {"total_focus": focus_records.get(today_str, {}).get("focus_seconds", 0)}
 
     total_laptop = sum(r["total_duration"] for r in app_rows) if app_rows else 0
     total_focus = (focus_row["total_focus"] or 0) if focus_row else 0

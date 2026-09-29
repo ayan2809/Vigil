@@ -13,6 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import rumps
+from PyObjCTools import AppHelper
 
 # Add backend directory to sys.path for shared logger setup if available
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -59,7 +60,7 @@ def _make_http_request(method: str, path: str, payload: dict | None = None) -> d
 
 class SatanMenuBar(rumps.App):
     def __init__(self) -> None:
-        super().__init__("◔", quit_button=None)
+        super().__init__("Satan", title=" Satan ◔ ", quit_button=None)
         self.status_item = rumps.MenuItem("Status: connecting…")
         self.pause_item = rumps.MenuItem("Pause / Resume", callback=self.pause_or_resume)
         self.menu = [
@@ -86,26 +87,36 @@ class SatanMenuBar(rumps.App):
         state = timer.get("status", "idle")
         if state == "idle":
             self.status_item.title = "Status: idle"
-            self.title = "◔"
+            self.title = " Satan ◔ "
         else:
             phase = timer.get("phase", "work").title()
             remaining = timer.get("remaining_seconds", 0)
-            self.status_item.title = f"Status: {phase} {state} — {format_remaining(remaining)}"
-            self.title = "◷" if state == "running" else "◑"
+            away = " (screen off)" if timer.get("pause_reason") == "system_sleep" else ""
+            self.status_item.title = f"Status: {phase} {state}{away} — {format_remaining(remaining)}"
+            self.title = f" Satan {'◷' if state == 'running' else '◑'} "
+
+    def _set_unavailable_status(self) -> None:
+        self.status_item.title = "Status: server unavailable"
+        self.title = " Satan ! "
 
     def _async_action(self, method: str, path: str, payload: dict | None = None, show_dialog: bool = True) -> None:
         def task():
             try:
                 result = _make_http_request(method, path, payload)
-                self.render_status(result)
+                AppHelper.callAfter(self.render_status, result)
             except Exception as error:
+                logger.error(f"Async action error on {method} {path}: {error}", exc_info=True)
                 if show_dialog:
-                    self.show_error(error)
+                    AppHelper.callAfter(self.show_error, error)
                 else:
-                    self.status_item.title = "Status: server unavailable"
-                    self.title = "!"
+                    AppHelper.callAfter(self._set_unavailable_status)
 
         executor.submit(task)
+
+    @rumps.events.on_wake
+    def on_wake(self) -> None:
+        logger.info("System wake detected; refreshing menubar status...")
+        self.refresh(_sender=None)
 
     @rumps.clicked("Start 25-minute Pomodoro")
     def start(self, _sender) -> None:
@@ -117,9 +128,10 @@ class SatanMenuBar(rumps.App):
                 timer = _make_http_request("GET", "/pomodoro")
                 path = "/pomodoro/pause" if timer.get("status") == "running" else "/pomodoro/resume"
                 result = _make_http_request("POST", path)
-                self.render_status(result)
+                AppHelper.callAfter(self.render_status, result)
             except Exception as error:
-                self.show_error(error)
+                logger.error(f"Pause/resume error: {error}", exc_info=True)
+                AppHelper.callAfter(self.show_error, error)
 
         executor.submit(task)
 

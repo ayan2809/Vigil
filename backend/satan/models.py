@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -31,6 +32,9 @@ class TrackingEvent(BaseModel):
     title: str | None = Field(default=None, max_length=1000)
     event_type: str = Field(default="active_change", min_length=1, max_length=100)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # Client-side event time. Honored only for `system_sleep` events, whose HTTP request can be
+    # delayed until after the machine wakes (see routes/tracking.py).
+    occurred_at: datetime | None = None
 
 
 class PomodoroStart(BaseModel):
@@ -49,6 +53,11 @@ class TimerState:
     sessions_completed: int = 0
     started_at: str | None = None
     duration_at_start: int = 0
+    # Planned length of the current phase; unlike duration_at_start it survives pause/resume,
+    # so a resumed Pomodoro is credited its full focus time.
+    session_duration: int = 0
+    # Why the timer is paused: "manual" or "system_sleep" (lid closed / display asleep).
+    pause_reason: str | None = None
 
 
 class UserSettings(BaseModel):

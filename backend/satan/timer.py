@@ -27,8 +27,8 @@ async def save_timer_state(db: aiosqlite.Connection) -> None:
         """
         INSERT INTO PersistentTimerState (
             id, status, phase, task_id, remaining_seconds, started_at, ends_at,
-            duration_at_start, sessions_completed, updated_at
-        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            duration_at_start, sessions_completed, updated_at, session_duration
+        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             status = excluded.status,
             phase = excluded.phase,
@@ -38,7 +38,8 @@ async def save_timer_state(db: aiosqlite.Connection) -> None:
             ends_at = excluded.ends_at,
             duration_at_start = excluded.duration_at_start,
             sessions_completed = excluded.sessions_completed,
-            updated_at = excluded.updated_at
+            updated_at = excluded.updated_at,
+            session_duration = excluded.session_duration
         """,
         (
             timer_state.status,
@@ -50,6 +51,7 @@ async def save_timer_state(db: aiosqlite.Connection) -> None:
             timer_state.duration_at_start,
             timer_state.sessions_completed,
             now_str,
+            timer_state.session_duration,
         ),
     )
     await db.commit()
@@ -80,6 +82,9 @@ async def load_persisted_timer_state() -> None:
         timer_state.phase = phase
         timer_state.task_id = task_id
         timer_state.duration_at_start = duration_at_start
+        # Rows written before session_duration existed have 0; fall back to what we know.
+        timer_state.session_duration = row["session_duration"] or duration_at_start
+        timer_state.pause_reason = "manual" if status == "paused" else None
         timer_state.sessions_completed = sessions_completed
         timer_state.started_at = started_at_str
         timer_state.ends_at = ends_at_str
@@ -126,6 +131,46 @@ def cancel_timer_job() -> None:
     timer_completion_job = None
 
 
+async def pause_running_timer(
+    db: aiosqlite.Connection, *, at: datetime | None = None, reason: str = "manual"
+) -> bool:
+    """Pause the running timer. The caller MUST hold ``timer_lock``. Returns True if paused.
+
+    Manual pauses measure elapsed time with the monotonic clock. Auto-pauses (``at`` given, e.g.
+    the moment the lid closed) measure remaining time against the wall-clock ``ends_at``: the sleep
+    event can reach the server after wake, and macOS's monotonic clock does not advance while the
+    system sleeps. A stale ``at`` (before this run started, or after it already ended) is ignored.
+    """
+    if timer_state.status != "running" or timer_state.started_monotonic is None:
+        return False
+
+    if at is not None:
+        try:
+            started_dt = datetime.fromisoformat(timer_state.started_at or "")
+            ends_dt = datetime.fromisoformat(timer_state.ends_at or "")
+        except ValueError:
+            return False
+        if at < started_dt:
+            return False
+        remaining = int((ends_dt - at).total_seconds())
+        if remaining <= 0:
+            return False
+        timer_state.remaining_seconds = min(remaining, timer_state.remaining_seconds)
+    else:
+        elapsed = monotonic() - timer_state.started_monotonic
+        timer_state.remaining_seconds = max(0, timer_state.remaining_seconds - int(elapsed))
+
+    timer_state.status = "paused"
+    timer_state.pause_reason = reason
+    timer_state.started_monotonic = None
+    timer_state.started_at = None
+    timer_state.duration_at_start = 0
+    timer_state.ends_at = None
+    cancel_timer_job()
+    await save_timer_state(db)
+    return True
+
+
 def schedule_phase_completion(seconds: int) -> None:
     global timer_completion_job
     timer_completion_job = asyncio.create_task(finish_phase_after(seconds))
@@ -167,7 +212,9 @@ async def finish_phase_after(seconds: int) -> None:
         timer_completion_job = None
         async for db in get_db():
             if timer_state.phase == "work":
-                focus_seconds = timer_state.duration_at_start or DEFAULT_WORK_SECONDS
+                focus_seconds = (
+                    timer_state.session_duration or timer_state.duration_at_start or DEFAULT_WORK_SECONDS
+                )
                 if timer_state.task_id is not None:
                     await complete_task_session(db, timer_state.task_id)
 
@@ -201,6 +248,8 @@ async def finish_phase_after(seconds: int) -> None:
                 timer_state.started_monotonic = monotonic()
                 timer_state.started_at = local_now().isoformat(timespec="seconds")
                 timer_state.duration_at_start = DEFAULT_BREAK_SECONDS
+                timer_state.session_duration = DEFAULT_BREAK_SECONDS
+                timer_state.pause_reason = None
                 timer_state.ends_at = (local_now() + timedelta(seconds=DEFAULT_BREAK_SECONDS)).isoformat(
                     timespec="seconds"
                 )
@@ -215,6 +264,8 @@ async def finish_phase_after(seconds: int) -> None:
                 timer_state.started_monotonic = None
                 timer_state.started_at = None
                 timer_state.duration_at_start = 0
+                timer_state.session_duration = 0
+                timer_state.pause_reason = None
                 timer_state.ends_at = None
                 await save_timer_state(db)
                 announcement = "Break complete. Your next Pomodoro is ready."

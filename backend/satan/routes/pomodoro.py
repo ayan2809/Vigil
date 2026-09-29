@@ -14,6 +14,7 @@ from satan.models import PomodoroStart
 from satan.routes.tasks import get_task_or_404
 from satan.timer import (
     cancel_timer_job,
+    pause_running_timer,
     save_timer_state,
     schedule_phase_completion,
     timer_lock,
@@ -48,6 +49,8 @@ async def start_pomodoro(
         timer_state.started_monotonic = monotonic()
         timer_state.started_at = local_now().isoformat(timespec="seconds")
         timer_state.duration_at_start = payload.duration_seconds
+        timer_state.session_duration = payload.duration_seconds
+        timer_state.pause_reason = None
         timer_state.ends_at = (
             local_now() + timedelta(seconds=payload.duration_seconds)
         ).isoformat(timespec="seconds")
@@ -68,19 +71,10 @@ async def start_pomodoro(
 @router.post("/pause", response_model=dict[str, Any])
 async def pause_pomodoro(db: aiosqlite.Connection = Depends(get_db)) -> dict[str, Any]:
     async with timer_lock:
-        if timer_state.status != "running" or timer_state.started_monotonic is None:
+        if not await pause_running_timer(db, reason="manual"):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT, detail="No running Pomodoro to pause"
             )
-        elapsed = monotonic() - timer_state.started_monotonic
-        timer_state.remaining_seconds = max(0, timer_state.remaining_seconds - int(elapsed))
-        timer_state.status = "paused"
-        timer_state.started_monotonic = None
-        timer_state.started_at = None
-        timer_state.duration_at_start = 0
-        timer_state.ends_at = None
-        cancel_timer_job()
-        await save_timer_state(db)
 
     announce("Timer paused.")
     return await timer_snapshot()
@@ -99,6 +93,7 @@ async def resume_pomodoro(db: aiosqlite.Connection = Depends(get_db)) -> dict[st
                 detail="The paused Pomodoro has no time remaining",
             )
         timer_state.status = "running"
+        timer_state.pause_reason = None
         timer_state.started_monotonic = monotonic()
         timer_state.started_at = local_now().isoformat(timespec="seconds")
         timer_state.duration_at_start = timer_state.remaining_seconds
@@ -127,6 +122,8 @@ async def stop_pomodoro(db: aiosqlite.Connection = Depends(get_db)) -> dict[str,
         timer_state.started_monotonic = None
         timer_state.started_at = None
         timer_state.duration_at_start = 0
+        timer_state.session_duration = 0
+        timer_state.pause_reason = None
         timer_state.ends_at = None
         await save_timer_state(db)
 
