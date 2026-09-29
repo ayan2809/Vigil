@@ -117,6 +117,13 @@ async def initialize_database() -> None:
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS DailyActivityRollup (
+                local_date TEXT PRIMARY KEY,
+                laptop_seconds INTEGER NOT NULL DEFAULT 0,
+                focus_seconds INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS user_settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 pomodoro_duration_minutes INTEGER NOT NULL DEFAULT 25,
@@ -153,6 +160,14 @@ async def initialize_database() -> None:
             await connection.execute("ALTER TABLE user_settings ADD COLUMN monthly_goals TEXT")
         if "core_values" not in columns:
             await connection.execute("ALTER TABLE user_settings ADD COLUMN core_values TEXT")
+
+        cursor = await connection.execute("PRAGMA table_info(PersistentTimerState)")
+        timer_columns = [row["name"] for row in await cursor.fetchall()]
+        await cursor.close()
+        if "session_duration" not in timer_columns:
+            await connection.execute(
+                "ALTER TABLE PersistentTimerState ADD COLUMN session_duration INTEGER NOT NULL DEFAULT 0"
+            )
 
         # Seed initial default row id=1
         await connection.execute(

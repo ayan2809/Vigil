@@ -425,3 +425,65 @@ time { color: #8da2b5; font-feature-settings: "tnum"; font-size: 0.83rem; paddin
   justify-content: center;
 }
 
+
+/* Focus Load (progressive overload) */
+.focus-load-card { --load-steady: #5fd3a0; --load-above: #f5b74f; --load-well-above: #ef6a6a; --load-below: #7fb0ff; --load-well-below: #8b8ff0; }
+.load-badge { border-radius: 999px; padding: 0.3rem 0.75rem; font-size: 0.8rem; font-weight: 700; background: #22364b; color: #d9e5ef; }
+.load-badge.steady, .readout-delta.steady { color: var(--load-steady); }
+.load-badge.above, .readout-delta.above { color: var(--load-above); }
+.load-badge.well_above, .readout-delta.well_above { color: var(--load-well-above); }
+.load-badge.below, .readout-delta.below { color: var(--load-below); }
+.load-badge.well_below, .readout-delta.well_below { color: var(--load-well-below); }
+.load-copy { color: #c3d2e0; line-height: 1.5; margin-top: 0.9rem; }
+.load-copy .trend { color: #eaf1f8; }
+.load-copy .trend.rising { color: var(--load-above); }
+.load-note { color: #8da2b5; font-size: 0.82rem; margin-top: 0.4rem; }
+.load-gauge { margin-top: 1.1rem; }
+.gauge-track { position: relative; height: 10px; border-radius: 999px; background: #22364b; }
+.gauge-band { position: absolute; top: 0; bottom: 0; left: 43.75%; width: 18.75%; background: #5fd3a044; border-radius: 999px; }
+.gauge-pin { position: absolute; top: -4px; width: 4px; height: 18px; margin-left: -2px; border-radius: 2px; background: #eaf1f8; box-shadow: 0 0 0 2px #172332; }
+.gauge-pin.steady { background: var(--load-steady); }
+.gauge-pin.above { background: var(--load-above); }
+.gauge-pin.well_above { background: var(--load-well-above); }
+.gauge-pin.below { background: var(--load-below); }
+.gauge-pin.well_below { background: var(--load-well-below); }
+.gauge-scale { display: flex; justify-content: space-between; margin-top: 0.4rem; color: #7e96ad; font-size: 0.72rem; }
+.load-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+.load-metrics strong, .load-readout strong { display: block; margin-top: 0.2rem; font-size: 1.05rem; font-feature-settings: "tnum"; }
+.metric-sub { display: block; color: #8da2b5; font-size: 0.75rem; margin-top: 0.15rem; }
+.today-progress { height: 6px; margin-top: 0.5rem; border-radius: 999px; background: #22364b; overflow: hidden; }
+.today-progress > div { height: 100%; background: #4c85f7; border-radius: 999px; }
+.load-chart { margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid #26394e; }
+.load-readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; min-height: 3.6rem; }
+.readout-load small { color: #8da2b5; font-size: 0.75rem; font-weight: 500; }
+.focus-chart { display: block; width: 100%; height: auto; margin-top: 0.6rem; touch-action: pan-y; cursor: crosshair; }
+.chart-grid { stroke: #26394e; stroke-width: 1; }
+.chart-axis { fill: #7e96ad; font-size: 7.5px; }
+.chart-bar { fill: #4c85f7; opacity: 0.28; }
+.chart-band { fill: #5fd3a0; opacity: 0.14; }
+.chart-line { fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.chart-line.acute { stroke: #83aeff; }
+.chart-line.chronic { stroke: #b8c7d6; }
+.chart-line.chronic.partial { stroke-dasharray: 3 4; opacity: 0.7; }
+.chart-rule { stroke: #8da2b5; stroke-width: 1; stroke-dasharray: 2 3; }
+.chart-dot { stroke: #172332; stroke-width: 2; }
+.chart-dot.acute { fill: #83aeff; }
+.chart-dot.chronic { fill: #b8c7d6; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin-top: 0.4rem; color: #8da2b5; font-size: 0.75rem; }
+.swatch { display: inline-block; width: 12px; height: 8px; margin-right: 0.35rem; border-radius: 2px; vertical-align: middle; }
+.swatch.bar { background: #4c85f74d; }
+.swatch.acute { background: #83aeff; height: 3px; }
+.swatch.chronic { background: #b8c7d6; height: 3px; }
+.swatch.band { background: #5fd3a02a; }
+@media (max-width: 720px) {
+  .load-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .load-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Focus Load range toggle (segmented control) */
+.load-chart-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+.range-toggle { display: inline-flex; padding: 3px; border-radius: 9px; background: #111c29; border: 1px solid #26394e; }
+.range-toggle button { background: transparent; color: #8da2b5; padding: 0.3rem 0.85rem; border-radius: 7px; font-size: 0.78rem; font-weight: 650; letter-spacing: 0.02em; }
+.range-toggle button:hover { filter: none; color: #eaf1f8; }
+.range-toggle button.active { background: #2c4460; color: #eaf1f8; }
+.range-note { color: #7e96ad; font-size: 0.75rem; }

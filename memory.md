@@ -21,7 +21,9 @@ Satan/
 │   └── satan/
 │       ├── main.py           # App factory, CORS, lifespan startup/shutdown
 │       ├── db.py             # Async SQLite lifecycle (WAL mode, busy_timeout=5000)
-│       ├── timer.py          # Persistent Pomodoro state machine & timer lock
+│       ├── timer.py          # Persistent Pomodoro state machine, timer lock, `pause_running_timer` (manual + sleep auto-pause)
+│       ├── activity.py       # SINGLE home of the gap-based active-time SQL + `DailyActivityRollup` helpers
+│       ├── focus_load.py     # Pure Focus Load math (acute 7d vs chronic 28d, classification, history series)
 │       ├── scheduler.py      # APScheduler jobs for nightly reflection outbox & email queue
 │       ├── models.py         # Pydantic schemas and dataclasses
 │       ├── logger.py         # Structured rotating file logging setup
@@ -29,7 +31,8 @@ Satan/
 │       └── routes/           # Decoupled API routers
 │           ├── tasks.py      # Task CRUD operations (`/tasks`)
 │           ├── tracking.py   # Activity webhook receiver (`/track`)
-│           ├── summary.py    # Duration calculation SQL aggregations (`/summary/*`)
+│           ├── summary.py    # Active-time & heatmap endpoints (thin; SQL lives in `activity.py`)
+│           ├── focus_load.py # Focus Load endpoint (`/focus-load`)
 │           ├── pomodoro.py   # Pomodoro lifecycle controls (`/pomodoro/*`)
 │           └── settings.py   # User configuration management (`/settings`)
 ├── trackers/
@@ -39,7 +42,7 @@ Satan/
 │   └── menubar.py            # Rumps macOS status bar app with background thread I/O
 ├── dashboard/                # Vite + React single-page dashboard (Port 3200)
 │   └── src/
-│       ├── App.jsx           # Main UI container (heatmap, timeline, tasks, timer)
+│       ├── App.jsx           # Main UI container (timer, focus queue, heatmap, Focus Load card/chart, tasks, breakdown)
 │       ├── main.jsx          # React entry point
 │       └── styles.css        # Dashboard styling system
 ├── launchd/                  # macOS LaunchAgent automation
@@ -48,6 +51,8 @@ Satan/
 ├── data/                     # Local SQLite database and rotating log directory
 ├── tests/                    # Automated pytest integration & unit test suite
 │   ├── test_api.py           # API endpoints, CRUD, and state recovery tests
+│   ├── test_focus_load.py    # Pure Focus Load math (boundaries, cold start, rolling history, trend)
+│   ├── test_sleep_and_rollup.py # Sleep brake, aggregation rule, DailyActivityRollup, /focus-load
 │   └── test_settings_and_outbox.py # Settings API & email outbox tests
 └── memory.md                 # System memory and architectural blueprint
 ```
@@ -112,7 +117,7 @@ CREATE TABLE IF NOT EXISTS TrackingLogs (
     url TEXT,                          -- Web page URL (browser events)
     domain TEXT,                       -- Extracted hostname (e.g. "github.com")
     title TEXT,                        -- Window or tab title
-    event_type TEXT NOT NULL,          -- "frontmost_application_changed", "tab_activated", "pomodoro_completed"
+    event_type TEXT NOT NULL,          -- "frontmost_application_changed", "tab_activated", "pomodoro_completed", "system_sleep"
     metadata_json TEXT NOT NULL DEFAULT '{}'
 );
 
@@ -155,6 +160,19 @@ CREATE TABLE IF NOT EXISTS PersistentTimerState (
     ends_at TEXT,                               -- ISO-8601 target end timestamp
     duration_at_start INTEGER NOT NULL DEFAULT 0,
     sessions_completed INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    session_duration INTEGER NOT NULL DEFAULT 0 -- planned phase length; survives pause/resume (added via ALTER)
+);
+```
+
+#### 4b. `DailyActivityRollup`
+Finalized per-day totals so Focus Load history survives the 30-day `TrackingLogs` purge. Only days before today are stored (today is always computed live). Filled at startup (`rollup_past_days`, **before** `cleanup_old_logs`) and lazily on read (`get_daily_totals`).
+
+```sql
+CREATE TABLE IF NOT EXISTS DailyActivityRollup (
+    local_date TEXT PRIMARY KEY,
+    laptop_seconds INTEGER NOT NULL DEFAULT 0,
+    focus_seconds INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
 );
 ```
@@ -201,7 +219,7 @@ CREATE INDEX IF NOT EXISTS idx_email_outbox_sent ON email_outbox (is_sent, targe
 | Method | Endpoint | Description | Request Body / Query | Response |
 +| --- | --- | --- | --- | --- |
 +| `GET` | `/health` | Health check endpoint | None | `{"status": "ok"}` |
-+| `POST` | `/track` | Receive activity webhook | `TrackingEvent` JSON | `{"id": int}` |
++| `POST` | `/track` | Receive activity webhook. `event_type: "system_sleep"` (lid closed / display asleep) also auto-pauses a running timer; only for that type is the optional client `occurred_at` (ISO datetime, ≤24h old, not future) honored | `TrackingEvent` JSON | `{"id": int}` |
 
 ### Aggregations & Analytics
 
@@ -209,12 +227,13 @@ CREATE INDEX IF NOT EXISTS idx_email_outbox_sent ON email_outbox (is_sent, targe
 | --- | --- | --- | --- | --- |
 | `GET` | `/active-time-summary` | Active app & domain breakdown for a date | `date` (YYYY-MM-DD, default today) | `{"totalSeconds": int, "apps": [...]}` |
 | `GET` | `/activity/summary` | Multi-day laptop vs focus time summary | `days` (int, default 28) | `{"days": [{"date": "...", "total_laptop_time_seconds": int, ...}]}` |
+| `GET` | `/focus-load` | Acute (7d, includes today) vs chronic (28d) focus load, classification, trend, and chart series | `days` (7–180, default 30; dashboard uses 30/60/90) — sets only the `history` window, trimmed to days since first data | `{"state": "insufficient_data\|preliminary\|operational", "daysTracked", "classification", "deltaPercent", "trend", "acuteLoad", "chronicLoad", "acuteFocusMinutesPerDay", "chronicFocusMinutesPerDay", "densityScore", "acuteDensity", "today": {...}, "rangeDays", "history": [{"date", "flu", "focusMinutes", "laptopMinutes", "density", "acuteLoad", "chronicLoad", "chronicPartial", "deltaPercent", "classification"}]}` |
 
 ### Pomodoro Timer Engine
 
 | Method | Endpoint | Description | Request Body | Response |
 | --- | --- | --- | --- | --- |
-| `GET` | `/pomodoro` | Get current timer state snapshot | None | `TimerState` JSON |
+| `GET` | `/pomodoro` | Get current timer state snapshot (includes `session_duration` and `pause_reason`: `manual` / `system_sleep`) | None | `TimerState` JSON |
 | `POST` | `/pomodoro/start` | Start work session | `{"task_id": int?, "duration_seconds": int}` | Updated `TimerState` |
 | `POST` | `/pomodoro/pause` | Pause running timer | None | Updated `TimerState` |
 | `POST` | `/pomodoro/resume` | Resume paused timer | None | Updated `TimerState` |
@@ -246,6 +265,14 @@ Active app durations are computed dynamically in SQLite using window functions w
 - Calculates duration between consecutive event timestamps (`LEAD(occurred_at) OVER (ORDER BY occurred_at)`).
 - Caps event gaps at **15 minutes (900 seconds)** to ignore inactive periods.
 - For today's ongoing session, compares the last event timestamp against `strftime('%s', 'now', 'localtime')`.
+- **One copy only**: the SQL lives in `backend/satan/activity.py` (`get_app_durations`, `get_daily_activity_records`); `summary.py`, `scheduler.py`, and `/focus-load` all call it. Change the cap or ignore-list there.
+- `system_sleep` events stay in the window (so the last real event before sleep ends at the sleep time) but earn 0 duration themselves, so the span from sleep to the next event is never counted.
+
+### 1b. Focus Load & Sleep Brake
+- `focus_load.py` (pure): daily FLU = `focus_min × (0.5 + 0.5 × density)`, density = focus/laptop clamped 0..1. Δ% = (L7 − L28)/L28; bands: `< -20` well_below, `< -5` below, `≤ 10` steady, `≤ 30` above, else well_above. Cold start: `<7` days `insufficient_data`, `<28` `preliminary`. Today is included in L7 (live).
+- `mac_tracker.py` observes WillSleep/DidWake/ScreensDidSleep/ScreensDidWake (event-driven) and emits one `system_sleep` per transition into "away" with a client `occurred_at`; on return it clears its dedup and re-emits the frontmost app.
+- `pause_running_timer` (caller holds `timer_lock`): auto-pauses at the sleep moment using wall-clock `ends_at`; no auto-resume on wake. `session_duration` keeps the full planned length so a resumed Pomodoro is credited in full.
+- Startup order matters: `rollup_past_days` runs before `cleanup_old_logs`; if the rollup fails, the purge is skipped that startup.
 
 ### 2. Thread-Safe Pomodoro State Machine
 - Guarded by `asyncio.Lock()` in `backend/satan/timer.py`.
@@ -264,17 +291,18 @@ Active app durations are computed dynamically in SQLite using window functions w
 
 ### 4. Intent vs. Reality Dashboard Philosophy
 The React Dashboard ([App.jsx](file:///Volumes/Projects/Vigil/dashboard/src/App.jsx)) enforces a strict **Intent vs. Reality** visual architecture:
-- **Top Row**: Live Work Session Pomodoro Clock + Laptop Time Today.
-- **Monthly Goal Banner**: Minimalistic, centered banner displaying `monthly_goal` positioned directly below top stats and above the 28-day activity heatmap.
+- **Top Row**: Live Work Session Pomodoro Clock (shows "(screen off)" when auto-paused by sleep) + Laptop Time Today.
+- **Focus Queue** (full width, directly below the top row): task list with session estimations & status toggles.
+- **Monthly Goal Banner**: Minimalistic, centered banner displaying `monthly_goal(s)`, above the 28-day activity heatmap.
+- **Focus Load card** (below the heatmap; `FocusLoadCard` / `FocusLoadChart` / `RangeToggle` in `App.jsx`): classification badge, baseline gauge, metrics (today's density), and an Apple-Health-style inline-SVG chart (daily load bars, 7-day and 28-day average lines, steady-range band) with a hover readout and a 30D/60D/90D toggle that re-fetches `/focus-load?days=N`. Fails quietly if the endpoint errors, so the rest of the dashboard is unaffected.
 - **Left Column ("Intent")**:
-  - **Focus Queue**: Task list with session estimations & status toggles.
   - **Daily Rules (`DailyValues`)**: Scrollable container (`max-h-64` / `16rem`) displaying `core_values` ground rules with custom scrollbar.
 - **Right Column ("Reality")**:
   - **Time Breakdown**: Active app and domain time summary logged by background event trackers.
 
 ### 4. Non-Blocking I/O in Desktop & Menu Bar Apps
 - `mac_tracker.py` uses PyObjC `NSWorkspace` notifications. Webhook HTTP POST calls are offloaded to `ThreadPoolExecutor(max_workers=2)` so the Cocoa run loop (`AppHelper.runConsoleEventLoop`) never freezes.
-- `menubar.py` uses `rumps`. HTTP calls to the backend are offloaded to `ThreadPoolExecutor` to keep the status bar responsive even when the API server is restarting.
+- `menubar.py` uses `rumps`. HTTP calls to the backend are offloaded to `ThreadPoolExecutor` to keep the status bar responsive even when the API server is restarting, while UI title/alert mutations are safely dispatched to Cocoa's main thread using `PyObjCTools.AppHelper.callAfter()`. System wake events are caught via `@rumps.events.on_wake` to force an immediate status refresh upon laptop sleep/wake transitions. LaunchAgents use `<key>KeepAlive</key><true/>` to ensure continuous background persistence.
 
 ### 5. Zero-Print Production Logging
 - `satan.logger` defines structured rotating file handlers writing to `data/satan-server.log`, `data/satan-tracker.log`, and `data/satan-menubar.log`.
@@ -318,6 +346,8 @@ Satan includes unit and integration tests covering API endpoints, task CRUD, tra
 ```zsh
 PYTHONPATH=backend ./.venv/bin/python -m pytest
 ```
+
+> `pytest.ini` sets `testpaths = tests` and the root `conftest.py` ignores the untracked root-level `test_smtp*.py` scratch scripts, which connect to SMTP at import time.
 
 ### LaunchAgent Automation (Launch at Login)
 

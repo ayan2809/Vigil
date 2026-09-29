@@ -7,9 +7,10 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from satan.db import cleanup_old_logs, initialize_database
+from satan.activity import rollup_past_days
+from satan.db import cleanup_old_logs, get_db, initialize_database
 from satan.logger import logger
-from satan.routes import pomodoro, settings, summary, tasks, tracking
+from satan.routes import focus_load, pomodoro, settings, summary, tasks, tracking
 from satan.scheduler import shutdown_scheduler, start_scheduler
 from satan.timer import cancel_timer_job, load_persisted_timer_state, timer_completion_job
 
@@ -19,7 +20,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     logger.info("Initializing Satan backend server...")
     await initialize_database()
     await load_persisted_timer_state()
-    await cleanup_old_logs(retention_days=30)
+    try:
+        # Persist finalized days BEFORE the retention purge so history survives it.
+        async for db in get_db():
+            await rollup_past_days(db)
+    except Exception as exc:
+        logger.error(f"Daily rollup failed; skipping log retention cleanup this startup: {exc}")
+    else:
+        await cleanup_old_logs(retention_days=30)
     await start_scheduler()
     yield
     logger.info("Shutting down Satan backend server...")
@@ -44,6 +52,7 @@ app.add_middleware(
 app.include_router(tasks.router)
 app.include_router(tracking.router)
 app.include_router(summary.router)
+app.include_router(focus_load.router)
 app.include_router(pomodoro.router)
 app.include_router(settings.router)
 

@@ -4,6 +4,11 @@
 NSWorkspace KVO and its activation notification both arrive from macOS only
 when the foreground application changes. AppHelper runs Cocoa's event loop;
 there is no foreground-app polling loop in this process.
+
+Sleep/wake and display sleep/wake notifications are likewise pushed by macOS. Entering
+"away" (lid closed, system asleep, or display in power saving) emits a single
+`system_sleep` event so the backend stops counting time and pauses the Pomodoro;
+leaving "away" re-emits the frontmost app so tracking resumes immediately.
 """
 
 from __future__ import annotations
@@ -12,12 +17,20 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from AppKit import NSWorkspace, NSWorkspaceDidActivateApplicationNotification
+from AppKit import (
+    NSWorkspace,
+    NSWorkspaceDidActivateApplicationNotification,
+    NSWorkspaceDidWakeNotification,
+    NSWorkspaceScreensDidSleepNotification,
+    NSWorkspaceScreensDidWakeNotification,
+    NSWorkspaceWillSleepNotification,
+)
 from Foundation import NSKeyValueChangeNewKey, NSKeyValueObservingOptionNew, NSObject
 from PyObjCTools import AppHelper
 from objc import super as objc_super
@@ -49,7 +62,7 @@ def _send_webhook(server_url: str, payload: dict) -> None:
     )
     try:
         with urlopen(request, timeout=2):
-            logger.debug(f"Event delivered for app {payload.get('application_name')!r}")
+            logger.debug(f"Event delivered: {payload.get('event_type')} {payload.get('application_name')!r}")
     except URLError as error:
         logger.warning(f"Vigil tracker webhook unavailable: {error.reason}")
     except Exception as exc:
@@ -76,6 +89,9 @@ class WorkspaceObserver(NSObject):
         self.server_url = server_url
         self.workspace = NSWorkspace.sharedWorkspace()
         self.last_process_id: int | None = None
+        self.system_asleep = False
+        self.screens_asleep = False
+        self.away = False
         return self
 
     def start(self) -> None:
@@ -92,6 +108,14 @@ class WorkspaceObserver(NSObject):
                 NSWorkspaceDidActivateApplicationNotification,
                 None,
             )
+            center = self.workspace.notificationCenter()
+            for selector, name in (
+                ("systemWillSleep:", NSWorkspaceWillSleepNotification),
+                ("systemDidWake:", NSWorkspaceDidWakeNotification),
+                ("screensDidSleep:", NSWorkspaceScreensDidSleepNotification),
+                ("screensDidWake:", NSWorkspaceScreensDidWakeNotification),
+            ):
+                center.addObserver_selector_name_object_(self, selector, name, None)
             self.emit_application(self.workspace.frontmostApplication())
             logger.info("WorkspaceObserver started successfully.")
         except Exception as exc:
@@ -119,6 +143,47 @@ class WorkspaceObserver(NSObject):
             self.emit_application(application)
         except Exception as exc:
             logger.error(f"Error in workspaceDidActivateApplication: {exc}")
+
+    def systemWillSleep_(self, _notification):  # noqa: N802 - Objective-C selector
+        self.system_asleep = True
+        self._update_away()
+
+    def systemDidWake_(self, _notification):  # noqa: N802 - Objective-C selector
+        self.system_asleep = False
+        self._update_away()
+
+    def screensDidSleep_(self, _notification):  # noqa: N802 - Objective-C selector
+        self.screens_asleep = True
+        self._update_away()
+
+    def screensDidWake_(self, _notification):  # noqa: N802 - Objective-C selector
+        self.screens_asleep = False
+        self._update_away()
+
+    def _update_away(self) -> None:
+        """Emit only on transitions of "away" so a lid close (system + screens) is one event."""
+        try:
+            away = self.system_asleep or self.screens_asleep
+            if away == self.away:
+                return
+            self.away = away
+            if away:
+                payload = {
+                    "source": "app",
+                    "event_type": "system_sleep",
+                    "metadata": {"reason": "system" if self.system_asleep else "display"},
+                    # The request may only complete after wake; the backend needs the real time.
+                    "occurred_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                }
+                executor.submit(_send_webhook, self.server_url, payload)
+                logger.info(f"Away: {payload['metadata']['reason']} sleep.")
+            else:
+                # Foreground app is unchanged across sleep, so the dedup below would swallow it.
+                self.last_process_id = None
+                self.emit_application(self.workspace.frontmostApplication())
+                logger.info("Back from sleep; resumed tracking.")
+        except Exception as exc:
+            logger.error(f"Error handling sleep/wake transition: {exc}")
 
     def emit_application(self, application) -> None:
         try:
